@@ -101,13 +101,13 @@ class PontosProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deletarPonto(int id) async {
+  Future<bool> deletarPonto(int id, {String? nomePonto, String? nomeEntidade}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _service.deletarPonto(id);
+      await _service.deletarPonto(id, nomePonto: nomePonto, nomeEntidade: nomeEntidade);
       _pontos.removeWhere((p) => p.id == id);
       _isLoading = false;
       notifyListeners();

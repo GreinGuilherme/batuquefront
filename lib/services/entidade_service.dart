@@ -99,8 +99,17 @@ class EntidadeService {
     return entidadeAtualizada;
   }
 
-  Future<void> deletarEntidade(int entidadeId) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar/$entidadeId');
+  Future<void> deletarEntidade(int entidadeId, {String? nomeEntidade}) async {
+    final queryParams = <String, String>{
+      'id': entidadeId.toString(),
+    };
+    if (nomeEntidade != null && nomeEntidade.isNotEmpty) {
+      queryParams['nomeEntidade'] = nomeEntidade;
+    }
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar')
+        .replace(queryParameters: queryParams);
+
     try {
       final response = await _client.delete(uri).timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 204) {

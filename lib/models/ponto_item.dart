@@ -14,7 +14,12 @@ class PontoItem {
       ordem: (json['ordem'] as num?)?.toInt() ?? 0,
       ponto: json['ponto'] != null
           ? PontoCantado.fromJson(json['ponto'] as Map<String, dynamic>)
-          : PontoCantado(nomePonto: '', pontoLetra: '', audioUrl: ''),
+          : PontoCantado(
+              id: (json['pontoId'] ?? json['ponto_id']) as int?,
+              nomePonto: '',
+              pontoLetra: '',
+              audioUrl: '',
+            ),
     );
   }
 
@@ -22,6 +27,13 @@ class PontoItem {
     return {
       'ordem': ordem,
       'ponto': ponto.toJson(),
+    };
+  }
+
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'pontoId': ponto.id,
+      'ordem': ordem,
     };
   }
 

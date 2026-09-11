@@ -89,13 +89,13 @@ class EntidadesProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deletarEntidade(int id) async {
+  Future<bool> deletarEntidade(int id, {String? nomeEntidade}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _service.deletarEntidade(id);
+      await _service.deletarEntidade(id, nomeEntidade: nomeEntidade);
       _entidades.removeWhere((e) => e.id == id);
       _isLoading = false;
       notifyListeners();

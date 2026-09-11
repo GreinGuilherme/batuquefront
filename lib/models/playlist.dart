@@ -28,9 +28,11 @@ class Playlist {
           .toList();
     }
 
+    final id = (json['id'] ?? json['idPlaylist'] ?? json['id_playlist']) as int?;
+
     return Playlist(
-      id: json['id'] as int?,
-      nomePlaylist: (json['nomePlaylist'] ?? json['nome_playlist'] ?? '') as String,
+      id: id,
+      nomePlaylist: (json['nomePlaylist'] ?? json['nome_playlist'] ?? json['nome'] ?? '') as String,
       dataCriacao: parsedDate,
       pontos: pontosList,
     );
@@ -48,6 +50,13 @@ class Playlist {
       data['dataCriacao'] = dataCriacao!.toIso8601String();
     }
     return data;
+  }
+
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'nomePlaylist': nomePlaylist,
+      'pontos': pontos.map((p) => p.toUpdateJson()).toList(),
+    };
   }
 
   Playlist copyWith({

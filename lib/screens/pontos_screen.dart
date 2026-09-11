@@ -25,7 +25,7 @@ class _PontosScreenState extends State<PontosScreen> {
     super.dispose();
   }
 
-  void _confirmDelete(BuildContext context, PontoCantado ponto) {
+  void _confirmDelete(BuildContext context, PontoCantado ponto, {String? nomeEntidade}) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -43,10 +43,24 @@ class _PontosScreenState extends State<PontosScreen> {
               if (ponto.id != null) {
                 final provider = context.read<PontosProvider>();
                 final messenger = ScaffoldMessenger.of(context);
-                final ok = await provider.deletarPonto(ponto.id!);
+                final ok = await provider.deletarPonto(
+                  ponto.id!,
+                  nomePonto: ponto.nomePonto,
+                  nomeEntidade: nomeEntidade,
+                );
                 if (ok) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Ponto deletado com sucesso!')),
+                    SnackBar(
+                      content: Text('Ponto "${ponto.nomePonto}" deletado com sucesso!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage ?? 'Erro ao deletar ponto "${ponto.nomePonto}".'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -164,32 +178,44 @@ class _PontosScreenState extends State<PontosScreen> {
           // List of Pontos
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => pontosProvider.carregarPontos(),
+              onRefresh: () async {
+                await Future.wait([
+                  pontosProvider.carregarPontos(),
+                  entidadesProvider.carregarEntidades(),
+                ]);
+              },
               child: pontosProvider.isLoading && pontos.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : pontos.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.music_off_outlined,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.outline,
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.55,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.music_off_outlined,
+                                    size: 64,
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    (pontosProvider.termoFiltro != null && pontosProvider.termoFiltro!.isNotEmpty) ||
+                                            pontosProvider.entidadeIdFiltro != null
+                                        ? 'Nenhum ponto encontrado com os filtros aplicados.'
+                                        : 'Nenhum ponto cantado cadastrado ainda.',
+                                    style: Theme.of(context).textTheme.bodyLarge,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                (pontosProvider.termoFiltro != null && pontosProvider.termoFiltro!.isNotEmpty) ||
-                                        pontosProvider.entidadeIdFiltro != null
-                                    ? 'Nenhum ponto encontrado com os filtros aplicados.'
-                                    : 'Nenhum ponto cantado cadastrado ainda.',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                            ),
                           ),
                         )
                       : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           itemCount: pontos.length,
                           itemBuilder: (context, index) {
@@ -229,7 +255,11 @@ class _PontosScreenState extends State<PontosScreen> {
                                   }
                                 },
                                 onEdit: () => PontoFormDialog.show(context, ponto: ponto),
-                                onDelete: () => _confirmDelete(context, ponto),
+                                onDelete: () => _confirmDelete(
+                                  context,
+                                  ponto,
+                                  nomeEntidade: entidadeVinculada?.nomeEntidade,
+                                ),
                               ),
                             );
                           },

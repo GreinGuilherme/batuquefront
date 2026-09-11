@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
+import 'package:batuque/models/ponto_item.dart';
 import 'package:batuque/models/playlist.dart';
 import 'package:batuque/services/entidade_service.dart';
 import 'package:batuque/services/ponto_service.dart';
@@ -40,9 +44,27 @@ void main() {
       final atualizada = await service.atualizarEntidade(cadastrada.id!, paraAtualizar);
       expect(atualizada.nomeEntidade, 'Caboclo Roxo do Mato');
 
-      await service.deletarEntidade(cadastrada.id!);
+      await service.deletarEntidade(cadastrada.id!, nomeEntidade: cadastrada.nomeEntidade);
       final todas = await service.buscarEntidades();
       expect(todas.any((e) => e.id == cadastrada.id), isFalse);
+    });
+
+    test('deletarEntidade envia os parâmetros id e nomeEntidade na query string (/entidade/deletar?id=1&nomeEntidade=Caboclo)', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+
+        return http.Response('', 204);
+      });
+
+      final mockService = EntidadeService(client: client);
+      await mockService.deletarEntidade(1, nomeEntidade: 'Caboclo Pena Branca');
+
+      expect(capturedMethod, 'DELETE');
+      expect(capturedUrl, contains('/entidade/deletar?id=1&nomeEntidade=Caboclo'));
     });
   });
 
@@ -80,9 +102,27 @@ void main() {
       final atualizado = await service.atualizarPonto(cadastrado.id!, paraAtualizar);
       expect(atualizado.nomePonto, 'Ponto de Ogum Beira Mar');
 
-      await service.deletarPonto(cadastrado.id!);
+      await service.deletarPonto(cadastrado.id!, nomePonto: cadastrado.nomePonto);
       final todos = await service.buscarPontos();
       expect(todos.any((p) => p.id == cadastrado.id), isFalse);
+    });
+
+    test('deletarPonto envia os parâmetros id e nomePonto na query string (/gestaopontos/deletar?id=10&nomePonto=Barulho no cemitério)', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+
+        return http.Response('', 204);
+      });
+
+      final mockService = PontoService(client: client);
+      await mockService.deletarPonto(10, nomePonto: 'Barulho no cemitério');
+
+      expect(capturedMethod, 'DELETE');
+      expect(capturedUrl, contains('/gestaopontos/deletar?id=10&nomePonto=Barulho'));
     });
   });
 
@@ -121,6 +161,149 @@ void main() {
       await service.deletarPlaylist(cadastrada.id!);
       final todas = await service.buscarPlaylists();
       expect(todas.any((p) => p.id == cadastrada.id), isFalse);
+    });
+
+    test('atualizarPlaylist envia payload correto para o backend', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+      late Map<String, dynamic> capturedBody;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+        return http.Response(
+          jsonEncode({
+            'id': 15,
+            'nomePlaylist': 'Playlist figueira',
+            'dataCriacao': '2026-03-10T10:00:00.000Z',
+            'pontos': [
+              {
+                'ordem': 1,
+                'ponto': {
+                  'id': 14,
+                  'nomePonto': 'Ponto Figueral',
+                  'pontoLetra': '',
+                  'audioUrl': '',
+                }
+              }
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final mockService = PlaylistService(client: client);
+      final playlistParaAtualizar = Playlist(
+        id: 15,
+        nomePlaylist: 'Playlist figueira',
+        pontos: [
+          PontoItem(
+            ordem: 1,
+            ponto: PontoCantado(
+              id: 14,
+              nomePonto: 'Ponto Figueral',
+              pontoLetra: '',
+              audioUrl: '',
+            ),
+          ),
+        ],
+      );
+
+      final resultado = await mockService.atualizarPlaylist(15, playlistParaAtualizar);
+
+      expect(capturedMethod, 'PUT');
+      expect(capturedUrl, contains('/playlist/atualizar/15'));
+      expect(capturedBody, {
+        'nomePlaylist': 'Playlist figueira',
+        'pontos': [
+          {'pontoId': 14, 'ordem': 1}
+        ],
+      });
+      expect(resultado.nomePlaylist, 'Playlist figueira');
+      expect(resultado.pontos.length, 1);
+      expect(resultado.pontos.first.ponto.id, 14);
+    });
+
+    test('cadastrarPlaylist envia payload correto e exibe nome da playlist', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+      late Map<String, dynamic> capturedBody;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+        return http.Response(
+          jsonEncode({
+            'id': 20,
+            'nomePlaylist': 'Playlist test mu',
+            'pontos': [
+              {
+                'ordem': 1,
+                'ponto': {
+                  'id': 1,
+                  'nomePonto': 'Ponto Exemplo',
+                  'pontoLetra': '',
+                  'audioUrl': '',
+                }
+              }
+            ],
+          }),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final mockService = PlaylistService(client: client);
+      final novaPlaylist = Playlist(
+        nomePlaylist: 'Playlist test mu',
+        pontos: [
+          PontoItem(
+            ordem: 1,
+            ponto: PontoCantado(
+              id: 1,
+              nomePonto: 'Ponto Exemplo',
+              pontoLetra: '',
+              audioUrl: '',
+            ),
+          ),
+        ],
+      );
+
+      final resultado = await mockService.cadastrarPlaylist(novaPlaylist);
+
+      expect(capturedMethod, 'POST');
+      expect(capturedUrl, contains('/playlist/cadastrar'));
+      expect(capturedBody, {
+        'nomePlaylist': 'Playlist test mu',
+        'pontos': [
+          {'pontoId': 1, 'ordem': 1}
+        ],
+      });
+      expect(resultado.id, 20);
+      expect(resultado.nomePlaylist, 'Playlist test mu');
+    });
+
+    test('deletarPlaylist envia o parâmetro id na query string da URL (/playlist/deletar?id=2)', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+
+        return http.Response('', 204);
+      });
+
+      final mockService = PlaylistService(client: client);
+      await mockService.deletarPlaylist(2);
+
+      expect(capturedMethod, 'DELETE');
+      expect(capturedUrl, contains('/playlist/deletar?id=2'));
     });
   });
 }

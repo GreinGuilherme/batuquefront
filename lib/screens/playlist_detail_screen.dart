@@ -130,11 +130,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 final provider = context.read<PlaylistsProvider>();
                 final messenger = ScaffoldMessenger.of(context);
                 final nav = Navigator.of(context);
-                final ok = await provider.deletarPlaylist(playlist.id!);
+                final ok = await provider.deletarPlaylist(
+                  playlist.id!,
+                  nomePlaylist: playlist.nomePlaylist,
+                );
                 if (ok) {
                   nav.pop();
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Playlist deletada!')),
+                    SnackBar(
+                      content: Text('Playlist "${playlist.nomePlaylist}" deletada com sucesso!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage ?? 'Erro ao deletar playlist "${playlist.nomePlaylist}".'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -284,116 +297,126 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
 
           Expanded(
-            child: playlist.pontos.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.queue_music_outlined,
-                          size: 64,
-                          color: colorScheme.outline,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Sua playlist está vazia.\nAdicione pontos para organizar sua gira.',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () => _showAddPontoModal(context, playlist!),
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Adicionar Pontos'),
-                        ),
-                      ],
-                    ),
-                  )
-                : ReorderableListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    itemCount: playlist.pontos.length,
-                    onReorderItem: (oldIndex, newIndex) {
-                      playlistsProvider.reordenarPontosLocais(playlist!.id!, oldIndex, newIndex > oldIndex ? newIndex + 1 : newIndex);
-                      playlistsProvider.salvarPlaylist(playlist.id!);
-                    },
-                    itemBuilder: (context, index) {
-                      final item = playlist!.pontos[index];
-                      final ponto = item.ponto;
-                      final isPlayingThisTrack = audioProvider.currentPonto?.id == ponto.id &&
-                          audioProvider.currentPlaylist?.id == playlist.id &&
-                          audioProvider.isPlaying;
-
-                      return Card(
-                        key: ValueKey('item_${ponto.id}_$index'),
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: isPlayingThisTrack
-                                ? colorScheme.secondary
-                                : colorScheme.primaryContainer,
-                            foregroundColor: isPlayingThisTrack
-                                ? colorScheme.onSecondary
-                                : colorScheme.onPrimaryContainer,
-                            child: Text('${item.ordem}'),
-                          ),
-                          title: Text(
-                            ponto.nomePonto,
-                            style: TextStyle(
-                              fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          subtitle: Text(
-                            ponto.pontoLetra,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+            child: RefreshIndicator(
+              onRefresh: () => playlistsProvider.carregarPlaylists(),
+              child: playlist.pontos.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.4,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              IconButton(
-                                icon: Icon(
-                                  isPlayingThisTrack
-                                      ? Icons.pause_circle_filled_rounded
-                                      : Icons.play_circle_fill_rounded,
-                                  color: colorScheme.primary,
-                                ),
-                                onPressed: () {
-                                  if (isPlayingThisTrack) {
-                                    audioProvider.pausar();
-                                  } else {
-                                    audioProvider.tocarPonto(
-                                      ponto,
-                                      playlist: playlist,
-                                      index: index,
-                                      item: item,
-                                    );
-                                  }
-                                },
+                              Icon(
+                                Icons.queue_music_outlined,
+                                size: 64,
+                                color: colorScheme.outline,
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red),
-                                onPressed: () {
-                                  playlistsProvider.removerPontoDaPlaylist(playlist!.id!, index);
-                                  playlistsProvider.salvarPlaylist(playlist.id!);
-                                },
+                              const SizedBox(height: 12),
+                              Text(
+                                'Sua playlist está vazia.\nAdicione pontos para organizar sua gira.',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyLarge,
                               ),
-                              ReorderableDragStartListener(
-                                index: index,
-                                child: const Icon(Icons.drag_handle_rounded),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: () => _showAddPontoModal(context, playlist!),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Adicionar Pontos'),
                               ),
                             ],
                           ),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => PontoDetailScreen(ponto: ponto),
-                              ),
-                            );
-                          },
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    )
+                  : ReorderableListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemCount: playlist.pontos.length,
+                      onReorderItem: (oldIndex, newIndex) {
+                        playlistsProvider.reordenarPontosLocais(playlist!.id!, oldIndex, newIndex > oldIndex ? newIndex + 1 : newIndex);
+                        playlistsProvider.salvarPlaylist(playlist.id!);
+                      },
+                      itemBuilder: (context, index) {
+                        final item = playlist!.pontos[index];
+                        final ponto = item.ponto;
+                        final isPlayingThisTrack = audioProvider.currentPonto?.id == ponto.id &&
+                            audioProvider.currentPlaylist?.id == playlist.id &&
+                            audioProvider.isPlaying;
+
+                        return Card(
+                          key: ValueKey('item_${ponto.id}_$index'),
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: isPlayingThisTrack
+                                  ? colorScheme.secondary
+                                  : colorScheme.primaryContainer,
+                              foregroundColor: isPlayingThisTrack
+                                  ? colorScheme.onSecondary
+                                  : colorScheme.onPrimaryContainer,
+                              child: Text('${item.ordem}'),
+                            ),
+                            title: Text(
+                              ponto.nomePonto,
+                              style: TextStyle(
+                                fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                            subtitle: Text(
+                              ponto.pontoLetra,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    isPlayingThisTrack
+                                        ? Icons.pause_circle_filled_rounded
+                                        : Icons.play_circle_fill_rounded,
+                                    color: colorScheme.primary,
+                                  ),
+                                  onPressed: () {
+                                    if (isPlayingThisTrack) {
+                                      audioProvider.pausar();
+                                    } else {
+                                      audioProvider.tocarPonto(
+                                        ponto,
+                                        playlist: playlist,
+                                        index: index,
+                                        item: item,
+                                      );
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red),
+                                  onPressed: () {
+                                    playlistsProvider.removerPontoDaPlaylist(playlist!.id!, index);
+                                    playlistsProvider.salvarPlaylist(playlist.id!);
+                                  },
+                                ),
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Icon(Icons.drag_handle_rounded),
+                                ),
+                              ],
+                            ),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => PontoDetailScreen(ponto: ponto),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ),
         ],
       ),

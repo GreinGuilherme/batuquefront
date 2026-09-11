@@ -39,10 +39,23 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
               if (entidade.id != null) {
                 final provider = context.read<EntidadesProvider>();
                 final messenger = ScaffoldMessenger.of(context);
-                final ok = await provider.deletarEntidade(entidade.id!);
+                final ok = await provider.deletarEntidade(
+                  entidade.id!,
+                  nomeEntidade: entidade.nomeEntidade,
+                );
                 if (ok) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Entidade removida com sucesso!')),
+                    SnackBar(
+                      content: Text('Entidade "${entidade.nomeEntidade}" removida com sucesso!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage ?? 'Erro ao deletar entidade "${entidade.nomeEntidade}".'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -113,24 +126,30 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
               child: provider.isLoading && entidades.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : entidades.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_outlined,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.outline,
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.6,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome_outlined,
+                                    size: 64,
+                                    color: Theme.of(context).colorScheme.outline,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    provider.termoBusca.isNotEmpty
+                                        ? 'Nenhuma entidade encontrada para "${provider.termoBusca}".'
+                                        : 'Nenhuma entidade cadastrada ainda.',
+                                    style: Theme.of(context).textTheme.bodyLarge,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                provider.termoBusca.isNotEmpty
-                                    ? 'Nenhuma entidade encontrada para "${provider.termoBusca}".'
-                                    : 'Nenhuma entidade cadastrada ainda.',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                            ),
                           ),
                         )
                       : LayoutBuilder(
@@ -138,6 +157,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                             final isWide = constraints.maxWidth >= 600;
                             if (isWide) {
                               return GridView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.all(16),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
@@ -157,6 +177,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                               );
                             } else {
                               return ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 itemCount: entidades.length,
                                 itemBuilder: (context, index) {

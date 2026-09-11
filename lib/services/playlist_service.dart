@@ -55,11 +55,34 @@ class PlaylistService {
           .post(
             uri,
             headers: {'Content-Type': 'application/json; charset=UTF-8'},
-            body: jsonEncode(playlist.toJson()),
+            body: jsonEncode(playlist.toUpdateJson()),
           )
           .timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return Playlist.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+        final decodedBody = utf8.decode(response.bodyBytes).trim();
+        if (decodedBody.isNotEmpty) {
+          try {
+            final dynamic jsonResponse = jsonDecode(decodedBody);
+            if (jsonResponse is Map<String, dynamic>) {
+              var created = Playlist.fromJson(jsonResponse);
+              if (created.nomePlaylist.isEmpty && playlist.nomePlaylist.isNotEmpty) {
+                created = created.copyWith(nomePlaylist: playlist.nomePlaylist);
+              }
+              if (created.pontos.isEmpty && playlist.pontos.isNotEmpty) {
+                created = created.copyWith(pontos: playlist.pontos);
+              }
+              return created;
+            } else if (jsonResponse is num) {
+              return playlist.copyWith(id: jsonResponse.toInt());
+            }
+          } catch (_) {
+            final intId = int.tryParse(decodedBody);
+            if (intId != null) {
+              return playlist.copyWith(id: intId);
+            }
+          }
+        }
+        return playlist;
       }
       throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
@@ -80,11 +103,27 @@ class PlaylistService {
           .put(
             uri,
             headers: {'Content-Type': 'application/json; charset=UTF-8'},
-            body: jsonEncode(playlist.toJson()),
+            body: jsonEncode(playlist.toUpdateJson()),
           )
           .timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
-        return Playlist.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+        final decodedBody = utf8.decode(response.bodyBytes).trim();
+        if (decodedBody.isNotEmpty) {
+          try {
+            final dynamic jsonResponse = jsonDecode(decodedBody);
+            if (jsonResponse is Map<String, dynamic>) {
+              var updated = Playlist.fromJson(jsonResponse);
+              if (updated.nomePlaylist.isEmpty && playlist.nomePlaylist.isNotEmpty) {
+                updated = updated.copyWith(nomePlaylist: playlist.nomePlaylist);
+              }
+              if (updated.pontos.isEmpty && playlist.pontos.isNotEmpty) {
+                updated = updated.copyWith(pontos: playlist.pontos);
+              }
+              return updated.id == null ? updated.copyWith(id: id) : updated;
+            }
+          } catch (_) {}
+        }
+        return playlist.copyWith(id: id);
       }
       throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
@@ -100,8 +139,16 @@ class PlaylistService {
     return playlistAtualizada;
   }
 
-  Future<void> deletarPlaylist(int id) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/deletar/$id');
+  Future<void> deletarPlaylist(int id, {String? nomePlaylist}) async {
+    final queryParams = <String, String>{
+      'id': id.toString(),
+    };
+    if (nomePlaylist != null && nomePlaylist.isNotEmpty) {
+      queryParams['nomePlaylist'] = nomePlaylist;
+    }
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/deletar')
+        .replace(queryParameters: queryParams);
     try {
       final response = await _client.delete(uri).timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 204) {

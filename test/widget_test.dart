@@ -5,6 +5,9 @@ import 'package:batuque/main.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
+import 'package:batuque/providers/entidades_provider.dart';
+import 'package:batuque/providers/pontos_provider.dart';
+import 'package:batuque/screens/ponto_detail_screen.dart';
 import 'package:batuque/widgets/entidade_card.dart';
 import 'package:batuque/widgets/ponto_card.dart';
 import 'package:batuque/widgets/audio_player_bottom_bar.dart';
@@ -19,11 +22,11 @@ void main() {
 
     // Verify NavigationBar destinations
     expect(find.text('Entidades'), findsOneWidget);
-    expect(find.text('Pontos Cantados'), findsOneWidget);
+    expect(find.text('Pontos'), findsOneWidget);
     expect(find.text('Playlists'), findsOneWidget);
 
-    // Tap on 'Pontos Cantados' tab
-    await tester.tap(find.text('Pontos Cantados'));
+    // Tap on 'Pontos' tab
+    await tester.tap(find.text('Pontos'));
     await tester.pumpAndSettle();
 
     // Tap on 'Playlists' tab
@@ -81,6 +84,32 @@ void main() {
 
     await tester.tap(find.byType(IconButton).first);
     expect(playTapped, isTrue);
+  });
+
+  testWidgets('PontoDetailScreen renders ponto details and screen awake indicator', (WidgetTester tester) async {
+    final ponto = PontoCantado(
+      id: 1,
+      nomePonto: 'Ponto de Caboclo',
+      pontoLetra: 'Okê Caboclo...',
+      audioUrl: 'https://example.com/caboclo.mp3',
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => EntidadesProvider()),
+          ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
+          ChangeNotifierProvider(create: (_) => PontosProvider()),
+        ],
+        child: MaterialApp(
+          home: PontoDetailScreen(ponto: ponto),
+        ),
+      ),
+    );
+
+    expect(find.text('Ponto de Caboclo'), findsNWidgets(2)); // AppBar and Header Card
+    expect(find.text('Okê Caboclo...'), findsOneWidget);
+    expect(find.text('Tela mantida acesa'), findsOneWidget);
   });
 
   testWidgets('AudioPlayerBottomBar renders playing ponto details', (WidgetTester tester) async {

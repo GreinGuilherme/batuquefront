@@ -91,13 +91,13 @@ class PlaylistsProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deletarPlaylist(int id) async {
+  Future<bool> deletarPlaylist(int id, {String? nomePlaylist}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _service.deletarPlaylist(id);
+      await _service.deletarPlaylist(id, nomePlaylist: nomePlaylist);
       _playlists.removeWhere((p) => p.id == id);
       _isLoading = false;
       notifyListeners();

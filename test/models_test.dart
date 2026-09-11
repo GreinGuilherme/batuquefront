@@ -124,5 +124,31 @@ void main() {
       expect(outputJson['dataCriacao'], isNotNull);
       expect(outputJson['pontos'], isA<List>());
     });
+
+    test('toUpdateJson formatted for backend update playlist request', () {
+      final playlist = Playlist(
+        id: 10,
+        nomePlaylist: 'Playlist figueira',
+        pontos: [
+          PontoItem(
+            ordem: 1,
+            ponto: PontoCantado(
+              id: 14,
+              nomePonto: 'Ponto Teste',
+              pontoLetra: '',
+              audioUrl: '',
+            ),
+          ),
+        ],
+      );
+
+      final updateJson = playlist.toUpdateJson();
+      expect(updateJson, {
+        'nomePlaylist': 'Playlist figueira',
+        'pontos': [
+          {'pontoId': 14, 'ordem': 1}
+        ],
+      });
+    });
   });
 }

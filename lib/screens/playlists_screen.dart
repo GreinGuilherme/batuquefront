@@ -40,10 +40,23 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               if (playlist.id != null) {
                 final provider = context.read<PlaylistsProvider>();
                 final messenger = ScaffoldMessenger.of(context);
-                final ok = await provider.deletarPlaylist(playlist.id!);
+                final ok = await provider.deletarPlaylist(
+                  playlist.id!,
+                  nomePlaylist: playlist.nomePlaylist,
+                );
                 if (ok) {
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('Playlist deletada!')),
+                    SnackBar(
+                      content: Text('Playlist "${playlist.nomePlaylist}" deletada com sucesso!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage ?? 'Erro ao deletar playlist "${playlist.nomePlaylist}".'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               }
@@ -116,27 +129,34 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               child: provider.isLoading && playlists.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : playlists.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.queue_music_outlined,
-                                size: 64,
-                                color: colorScheme.outline,
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.6,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.queue_music_outlined,
+                                    size: 64,
+                                    color: colorScheme.outline,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    provider.termoBusca.isNotEmpty
+                                        ? 'Nenhuma playlist encontrada para "${provider.termoBusca}".'
+                                        : 'Nenhuma playlist de Gira criada ainda.',
+                                    style: theme.textTheme.bodyLarge,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                              Text(
-                                provider.termoBusca.isNotEmpty
-                                    ? 'Nenhuma playlist encontrada para "${provider.termoBusca}".'
-                                    : 'Nenhuma playlist de Gira criada ainda.',
-                                style: theme.textTheme.bodyLarge,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                            ),
                           ),
                         )
                       : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           itemCount: playlists.length,
                           itemBuilder: (context, index) {

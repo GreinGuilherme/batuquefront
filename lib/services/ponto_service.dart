@@ -114,8 +114,20 @@ class PontoService {
     return pontoAtualizado;
   }
 
-  Future<void> deletarPonto(int id) async {
-    final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/deletar/$id');
+  Future<void> deletarPonto(int id, {String? nomePonto, String? nomeEntidade}) async {
+    final queryParams = <String, String>{
+      'id': id.toString(),
+    };
+    if (nomePonto != null && nomePonto.isNotEmpty) {
+      queryParams['nomePonto'] = nomePonto;
+    }
+    if (nomeEntidade != null && nomeEntidade.isNotEmpty) {
+      queryParams['nomeEntidade'] = nomeEntidade;
+    }
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/deletar')
+        .replace(queryParameters: queryParams);
+
     try {
       final response = await _client.delete(uri).timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 204) {
