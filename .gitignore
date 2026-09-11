@@ -22,3 +22,5 @@ local.properties
 
 # IDE / Editor
 /.idea/
+# Widget Preview related
+.widget_preview/

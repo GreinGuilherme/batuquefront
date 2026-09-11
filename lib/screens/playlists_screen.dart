@@ -67,29 +67,47 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar playlist de Gira...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          provider.filtrarPlaylists('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar playlist de Gira...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                provider.filtrarPlaylists('');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      provider.filtrarPlaylists(value);
+                    },
+                  ),
                 ),
-              ),
-              onChanged: (value) {
-                provider.filtrarPlaylists(value);
-              },
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: () => PlaylistFormDialog.show(context),
+                  icon: const Icon(Icons.add_rounded),
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(56, 56),
+                  ),
+                  tooltip: 'Nova Playlist',
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -193,11 +211,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => PlaylistFormDialog.show(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nova Playlist'),
       ),
     );
   }

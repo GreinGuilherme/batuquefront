@@ -64,29 +64,47 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar por nome, falange ou linha...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          provider.filtrarEntidades('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por nome, falange ou linha...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                provider.filtrarEntidades('');
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      provider.filtrarEntidades(value);
+                    },
+                  ),
                 ),
-              ),
-              onChanged: (value) {
-                provider.filtrarEntidades(value);
-              },
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: () => EntidadeFormDialog.show(context),
+                  icon: const Icon(Icons.add_rounded),
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(56, 56),
+                  ),
+                  tooltip: 'Nova Entidade',
+                ),
+              ],
             ),
           ),
           Expanded(
@@ -159,11 +177,6 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => EntidadeFormDialog.show(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nova Entidade'),
       ),
     );
   }

@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
               NavigationDestination(
                 icon: Icon(Icons.music_note_outlined),
                 selectedIcon: Icon(Icons.music_note_rounded),
-                label: 'Pontos Cantados',
+                label: 'Pontos',
               ),
               NavigationDestination(
                 icon: Icon(Icons.queue_music_outlined),

@@ -3,11 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Cores da Espiritualidade
-  static const Color darkBluePrimary = Color(0xFF0B192C);
-  static const Color deepBlue = Color(0xFF1A365D);
-  static const Color spiritualGold = Color(0xFFD4AF37);
+  static const Color darkBluePrimary = Color(0xFF4E2C01);
+  static const Color deepBlue = Color(0xFFB86D23);
+  static const Color spiritualGold = Color(0xFF91720B);
   static const Color brightGold = Color(0xFFFFD700);
   static const Color offWhite = Color(0xFFF8F9FA);
+  static const Color gray = Color(0xFFE1C7AD);
 
   // Light Theme
   static ThemeData get lightTheme {
@@ -43,11 +44,11 @@ class AppTheme {
         titleTextStyle: GoogleFonts.cinzel(
           fontSize: 20,
           fontWeight: FontWeight.bold,
-          color: spiritualGold,
+          color: brightGold,
         ),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: gray,
         elevation: 2,
         shadowColor: const Color(0x260B192C),
         shape: RoundedRectangleBorder(

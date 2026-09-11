@@ -73,35 +73,53 @@ class _PontosScreenState extends State<PontosScreen> {
           // Search & Filter header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar por nome ou letra do ponto...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          _searchController.clear();
-                          pontosProvider.filtrarPontos(
-                            termo: '',
-                            entidadeId: pontosProvider.entidadeIdFiltro,
-                          );
-                        },
-                      )
-                    : null,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar por nome ou letra do ponto...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                pontosProvider.filtrarPontos(
+                                  termo: '',
+                                  entidadeId: pontosProvider.entidadeIdFiltro,
+                                );
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      pontosProvider.filtrarPontos(
+                        termo: value,
+                        entidadeId: pontosProvider.entidadeIdFiltro,
+                      );
+                    },
+                  ),
                 ),
-              ),
-              onChanged: (value) {
-                pontosProvider.filtrarPontos(
-                  termo: value,
-                  entidadeId: pontosProvider.entidadeIdFiltro,
-                );
-              },
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: () => PontoFormDialog.show(context),
+                  icon: const Icon(Icons.add_rounded),
+                  style: IconButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(56, 56),
+                  ),
+                  tooltip: 'Novo Ponto',
+                ),
+              ],
             ),
           ),
 
@@ -219,11 +237,6 @@ class _PontosScreenState extends State<PontosScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => PontoFormDialog.show(context),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Novo Ponto'),
       ),
     );
   }
