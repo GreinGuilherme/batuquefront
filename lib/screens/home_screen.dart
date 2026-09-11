@@ -29,12 +29,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.graphic_eq_rounded, size: 28),
-            SizedBox(width: 8),
-            Text('Batuque'),
+            Image.asset('assets/images/logo.png', height: 28),
+            const SizedBox(width: 8),
+            const Text('Batuque'),
           ],
         ),
         centerTitle: true,
