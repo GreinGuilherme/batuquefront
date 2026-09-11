@@ -20,6 +20,7 @@ class PontoService {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -44,6 +45,7 @@ class PontoService {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -76,6 +78,7 @@ class PontoService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return PontoCantado.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -97,6 +100,7 @@ class PontoService {
       if (response.statusCode == 200) {
         return PontoCantado.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -117,6 +121,7 @@ class PontoService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }

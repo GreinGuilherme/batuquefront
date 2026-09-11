@@ -20,6 +20,7 @@ class PlaylistService {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -36,6 +37,7 @@ class PlaylistService {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -59,6 +61,7 @@ class PlaylistService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return Playlist.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -83,6 +86,7 @@ class PlaylistService {
       if (response.statusCode == 200) {
         return Playlist.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
@@ -103,6 +107,7 @@ class PlaylistService {
       if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       }
+      throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
       if (!ApiConfig.enableMockFallback) rethrow;
     }
