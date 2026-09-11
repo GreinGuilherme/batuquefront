@@ -1,15 +1,24 @@
+# Miscellaneous
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+*.ipr
+*.iws
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/build/
+
+# Android / Gradle
+.gradle/
 local.properties
+/captures/
+.externalNativeBuild
+.cxx/
+
+# IDE / Editor
+/.idea/
