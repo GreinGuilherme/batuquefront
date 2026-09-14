@@ -134,7 +134,7 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.ponto != null;
-    final entidades = context.watch<EntidadesProvider>().entidades;
+    final entidades = context.watch<EntidadesProvider>().todasEntidades;
 
     return AlertDialog(
       title: Text(isEditing ? 'Editar Ponto Cantado' : 'Novo Ponto Cantado'),

@@ -43,7 +43,11 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _animationController.forward();
-    _inicializarEIrParaHome();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _inicializarEIrParaHome();
+      }
+    });
   }
 
   Future<void> _inicializarEIrParaHome() async {

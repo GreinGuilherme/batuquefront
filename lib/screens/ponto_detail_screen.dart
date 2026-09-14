@@ -119,7 +119,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
     Entidade? entidade;
     if (ponto.entidadeId != null) {
       try {
-        entidade = entidadesProvider.entidades.firstWhere((e) => e.id == ponto.entidadeId);
+        entidade = entidadesProvider.todasEntidades.firstWhere((e) => e.id == ponto.entidadeId);
       } catch (_) {
         entidade = null;
       }

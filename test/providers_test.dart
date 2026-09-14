@@ -10,6 +10,7 @@ import 'package:batuque/providers/entidades_provider.dart';
 import 'package:batuque/providers/pontos_provider.dart';
 import 'package:batuque/providers/playlists_provider.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
+import 'package:batuque/services/api_config.dart';
 
 class FakeAudioPlayer extends AudioPlayer {
   final _stateController = StreamController<PlayerState>.broadcast();
@@ -71,6 +72,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
+    ApiConfig.enableMockFallback = true;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('xyz.luan/audioplayers.global'),
       (MethodCall methodCall) async {

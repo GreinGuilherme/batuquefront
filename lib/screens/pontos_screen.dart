@@ -144,7 +144,7 @@ class _PontosScreenState extends State<PontosScreen> {
     final audioProvider = context.watch<AudioPlayerProvider>();
 
     final pontos = pontosProvider.pontos;
-    final entidades = entidadesProvider.entidades;
+    final entidades = entidadesProvider.todasEntidades;
 
     // Calcular características disponíveis para o filtro em cascata
     final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
@@ -242,7 +242,7 @@ class _PontosScreenState extends State<PontosScreen> {
                     size: 18,
                   ),
                   label: Text(
-                    totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro Cascata',
+                    totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                   style: OutlinedButton.styleFrom(

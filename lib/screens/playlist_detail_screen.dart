@@ -163,7 +163,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final colorScheme = theme.colorScheme;
     final playlistsProvider = context.watch<PlaylistsProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
-    final entidades = context.watch<EntidadesProvider>().entidades;
+    final entidades = context.watch<EntidadesProvider>().todasEntidades;
 
     Playlist? playlist;
     try {
@@ -716,7 +716,7 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final pontos = context.watch<PontosProvider>().pontos;
-    final entidades = context.watch<EntidadesProvider>().entidades;
+    final entidades = context.watch<EntidadesProvider>().todasEntidades;
     final playlistsProvider = context.watch<PlaylistsProvider>();
 
     Playlist? currentPlaylist;
