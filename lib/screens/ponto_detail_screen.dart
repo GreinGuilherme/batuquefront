@@ -19,6 +19,8 @@ class PontoDetailScreen extends StatefulWidget {
 }
 
 class _PontoDetailScreenState extends State<PontoDetailScreen> {
+  double _fontSize = 17.0;
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +117,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
     }
 
     final isCurrentPontoPlaying = audioProvider.currentPonto?.id == ponto.id && audioProvider.isPlaying;
+    final letraFormatada = ponto.pontoLetra.replaceAll('\\n', '\n');
 
     return Scaffold(
       appBar: AppBar(
@@ -141,70 +144,65 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Banner Header Card
+              // Banner Header Card Compacto (Sem comprimir título e entidade)
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      colorScheme.primaryContainer,
-                      colorScheme.surfaceContainerHighest,
+                      colorScheme.primaryContainer.withValues(alpha: 0.8),
+                      colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: colorScheme.secondary.withValues(alpha: 0.5),
+                    color: colorScheme.secondary.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 32,
+                      radius: 20,
                       backgroundColor: colorScheme.secondary,
                       foregroundColor: colorScheme.onSecondary,
-                      child: const Icon(Icons.music_note_rounded, size: 36),
+                      child: const Icon(Icons.music_note_rounded, size: 22),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      ponto.nomePonto,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            ponto.nomePonto,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            entidade != null
+                                ? '${entidade.nomeEntidade} • Linha: ${entidade.linhaEntidade}'
+                                : 'Entidade Geral / Tradicional',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    if (entidade != null) ...[
-                      Chip(
-                        avatar: const Icon(Icons.person_rounded, size: 18),
-                        label: Text('${entidade.nomeEntidade} • Linha: ${entidade.linhaEntidade}'),
-                        backgroundColor: colorScheme.secondaryContainer,
-                        labelStyle: TextStyle(color: colorScheme.onSecondaryContainer),
-                      ),
-                    ] else
-                      Chip(
-                        label: const Text('Entidade Geral / Tradicional'),
-                        backgroundColor: colorScheme.surface,
-                      ),
-                    const SizedBox(height: 8),
-                    Chip(
-                      avatar: const Icon(Icons.screen_lock_portrait_outlined, size: 16),
-                      label: const Text('Tela mantida acesa', style: TextStyle(fontSize: 12)),
-                      backgroundColor: colorScheme.surface,
-                      side: BorderSide.none,
-                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
 
               // Controls
               ElevatedButton.icon(
@@ -219,29 +217,78 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
                 },
                 icon: Icon(
                   isCurrentPontoPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: 28,
+                  size: 26,
                 ),
                 label: Text(
                   isCurrentPontoPlaying ? 'Pausar Áudio' : 'Ouvir Ponto Cantado',
-                  style: const TextStyle(fontSize: 16),
+                  style: const TextStyle(fontSize: 15),
                 ),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 18),
 
-              // Letra Section
-              Text(
-                'Letra do Ponto',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+              // Letra Section Header com controles de zoom de fonte
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Letra do Ponto',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_rounded),
+                          iconSize: 18,
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          tooltip: 'Diminuir fonte',
+                          onPressed: _fontSize > 12.0
+                              ? () => setState(() => _fontSize = (_fontSize - 2).clamp(12.0, 32.0))
+                              : null,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            '${_fontSize.toInt()} pt',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_rounded),
+                          iconSize: 18,
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          tooltip: 'Aumentar fonte',
+                          onPressed: _fontSize < 32.0
+                              ? () => setState(() => _fontSize = (_fontSize + 2).clamp(12.0, 32.0))
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+
+              // Container da Letra (Preserva \n e quebras de linha das estrofes)
               Container(
-                padding: const EdgeInsets.all(20),
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: theme.cardTheme.color ?? colorScheme.surface,
                   borderRadius: BorderRadius.circular(16),
@@ -257,14 +304,37 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
                   ],
                 ),
                 child: Text(
-                  ponto.pontoLetra,
+                  letraFormatada,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     height: 1.8,
-                    fontSize: 17,
+                    fontSize: _fontSize,
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
+
+              const SizedBox(height: 24),
+
+              // Discreta mensagem de tela mantida acesa no final de todas as informações
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.screen_lock_portrait_outlined,
+                    size: 14,
+                    color: colorScheme.outline,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Tela mantida acesa',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.outline,
+                      fontSize: 11,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
