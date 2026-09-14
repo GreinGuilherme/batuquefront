@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/playlist.dart';
+import '../models/ponto_item.dart';
 import '../providers/playlists_provider.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/entidades_provider.dart';
@@ -19,6 +20,69 @@ class PlaylistDetailScreen extends StatefulWidget {
 }
 
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
+  late final ScrollController _scrollController;
+  bool _showScrollToTop = false;
+  final Set<int> _expandedPontoIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      final show = _scrollController.offset > 120;
+      if (show != _showScrollToTop) {
+        setState(() {
+          _showScrollToTop = show;
+        });
+      }
+    }
+  }
+
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _toggleExpandPonto(int id) {
+    setState(() {
+      if (_expandedPontoIds.contains(id)) {
+        _expandedPontoIds.remove(id);
+      } else {
+        _expandedPontoIds.add(id);
+      }
+    });
+  }
+
+  void _expandAll(List<PontoItem> pontos) {
+    setState(() {
+      for (final item in pontos) {
+        if (item.ponto.id != null) {
+          _expandedPontoIds.add(item.ponto.id!);
+        }
+      }
+    });
+  }
+
+  void _collapseAll() {
+    setState(() {
+      _expandedPontoIds.clear();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   void _showAddPontoModal(BuildContext context, Playlist playlist) {
     showModalBottomSheet(
       context: context,
@@ -38,7 +102,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           minChildSize: 0.4,
           maxChildSize: 0.9,
           expand: false,
-          builder: (context, scrollController) {
+          builder: (context, modalScrollController) {
             return Column(
               children: [
                 Padding(
@@ -64,7 +128,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   child: pontos.isEmpty
                       ? const Center(child: Text('Nenhum ponto cadastrado no catálogo.'))
                       : ListView.builder(
-                          controller: scrollController,
+                          controller: modalScrollController,
                           itemCount: pontos.length,
                           itemBuilder: (context, index) {
                             final ponto = pontos[index];
@@ -203,94 +267,140 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
         ],
       ),
+      floatingActionButton: _showScrollToTop
+          ? FloatingActionButton.small(
+              onPressed: _scrollToTop,
+              tooltip: 'Voltar ao topo',
+              child: const Icon(Icons.arrow_upward_rounded),
+            )
+          : null,
       body: Column(
         children: [
-          // Header Card
+          // Header Card Compacto e Discreto
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: colorScheme.secondary.withValues(alpha: 0.4),
               ),
             ),
-            child: Column(
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: colorScheme.secondary,
-                      foregroundColor: colorScheme.onSecondary,
-                      child: const Icon(Icons.queue_music_rounded, size: 30),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            playlist.nomePlaylist,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Criada em: $dataStr • ${playlist.pontos.length} ponto(s)',
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: colorScheme.secondary,
+                  foregroundColor: colorScheme.onSecondary,
+                  child: const Icon(Icons.queue_music_rounded, size: 22),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: playlist.pontos.isEmpty
-                        ? null
-                        : () {
-                            if (isPlayingCurrentPlaylist) {
-                              audioProvider.pausar();
-                            } else {
-                              audioProvider.tocarPlaylist(playlist!);
-                            }
-                          },
-                    icon: Icon(
-                      isPlayingCurrentPlaylist
-                          ? Icons.pause_circle_filled_rounded
-                          : Icons.play_circle_fill_rounded,
-                      size: 24,
-                    ),
-                    label: Text(
-                      isPlayingCurrentPlaylist
-                          ? 'Pausar Gira'
-                          : 'Iniciar Reprodução Sequencial de Gira',
-                    ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        playlist.nomePlaylist,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Criada em: $dataStr • ${playlist.pontos.length} ponto(s)',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
                   ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filledTonal(
+                  onPressed: playlist.pontos.isEmpty
+                      ? null
+                      : () {
+                          if (isPlayingCurrentPlaylist) {
+                            audioProvider.pausar();
+                          } else {
+                            audioProvider.tocarPlaylist(playlist!);
+                          }
+                        },
+                  icon: Icon(
+                    isPlayingCurrentPlaylist
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    size: 24,
+                  ),
+                  tooltip: isPlayingCurrentPlaylist
+                      ? 'Pausar Reprodução Sequencial'
+                      : 'Iniciar Reprodução Sequencial',
                 ),
               ],
             ),
           ),
 
+          // Seção de Controle da Lista (Responsiva sem overflow)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Pontos na Sequência',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Pontos na Sequência',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _showAddPontoModal(context, playlist!),
+                      icon: const Icon(Icons.add_rounded, size: 20),
+                      label: const Text(''),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
                 ),
-                TextButton.icon(
-                  onPressed: () => _showAddPontoModal(context, playlist!),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Adicionar Ponto'),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: playlist.pontos.isEmpty
+                          ? null
+                          : () => _expandAll(playlist!.pontos),
+                      icon: const Icon(Icons.unfold_more_rounded, size: 18),
+                      label: const Text('Expandir todos'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
+                      icon: const Icon(Icons.unfold_less_rounded, size: 18),
+                      label: const Text('Recolher todos'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -331,11 +441,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                     )
                   : ReorderableListView.builder(
+                      scrollController: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       itemCount: playlist.pontos.length,
                       onReorderItem: (oldIndex, newIndex) {
-                        playlistsProvider.reordenarPontosLocais(playlist!.id!, oldIndex, newIndex > oldIndex ? newIndex + 1 : newIndex);
+                        playlistsProvider.reordenarPontosLocais(
+                          playlist!.id!,
+                          oldIndex,
+                          newIndex > oldIndex ? newIndex + 1 : newIndex,
+                        );
                         playlistsProvider.salvarPlaylist(playlist.id!);
                       },
                       itemBuilder: (context, index) {
@@ -345,73 +460,154 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             audioProvider.currentPlaylist?.id == playlist.id &&
                             audioProvider.isPlaying;
 
+                        final isExpanded = ponto.id != null && _expandedPontoIds.contains(ponto.id);
+
                         return Card(
                           key: ValueKey('item_${ponto.id}_$index'),
                           margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: isPlayingThisTrack
-                                  ? colorScheme.secondary
-                                  : colorScheme.primaryContainer,
-                              foregroundColor: isPlayingThisTrack
-                                  ? colorScheme.onSecondary
-                                  : colorScheme.onPrimaryContainer,
-                              child: Text('${item.ordem}'),
-                            ),
-                            title: Text(
-                              ponto.nomePonto,
-                              style: TextStyle(
-                                fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                            subtitle: Text(
-                              ponto.pontoLetra,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    isPlayingThisTrack
-                                        ? Icons.pause_circle_filled_rounded
-                                        : Icons.play_circle_fill_rounded,
-                                    color: colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ListTile(
+                                contentPadding: const EdgeInsets.only(left: 12, right: 8),
+                                leading: CircleAvatar(
+                                  backgroundColor: isPlayingThisTrack
+                                      ? colorScheme.secondary
+                                      : colorScheme.primaryContainer,
+                                  foregroundColor: isPlayingThisTrack
+                                      ? colorScheme.onSecondary
+                                      : colorScheme.onPrimaryContainer,
+                                  child: Text('${item.ordem}'),
+                                ),
+                                title: Text(
+                                  ponto.nomePonto,
+                                  style: TextStyle(
+                                    fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.w600,
+                                    color: isPlayingThisTrack ? colorScheme.primary : null,
                                   ),
-                                  onPressed: () {
-                                    if (isPlayingThisTrack) {
-                                      audioProvider.pausar();
-                                    } else {
-                                      audioProvider.tocarPonto(
-                                        ponto,
-                                        playlist: playlist,
-                                        index: index,
-                                        item: item,
-                                      );
-                                    }
-                                  },
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.red),
-                                  onPressed: () {
-                                    playlistsProvider.removerPontoDaPlaylist(playlist!.id!, index);
-                                    playlistsProvider.salvarPlaylist(playlist.id!);
-                                  },
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        isPlayingThisTrack
+                                            ? Icons.pause_circle_filled_rounded
+                                            : Icons.play_circle_fill_rounded,
+                                        color: colorScheme.primary,
+                                      ),
+                                      tooltip: isPlayingThisTrack ? 'Pausar' : 'Tocar',
+                                      onPressed: () {
+                                        if (isPlayingThisTrack) {
+                                          audioProvider.pausar();
+                                        } else {
+                                          audioProvider.tocarPonto(
+                                            ponto,
+                                            playlist: playlist,
+                                            index: index,
+                                            item: item,
+                                          );
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        isExpanded
+                                            ? Icons.keyboard_arrow_up_rounded
+                                            : Icons.keyboard_arrow_down_rounded,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                      tooltip: isExpanded ? 'Recolher Letra' : 'Expandir Letra',
+                                      onPressed: () {
+                                        if (ponto.id != null) {
+                                          _toggleExpandPonto(ponto.id!);
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.remove_circle_outline_rounded,
+                                        color: Colors.redAccent,
+                                      ),
+                                      tooltip: 'Remover da Playlist',
+                                      onPressed: () {
+                                        playlistsProvider.removerPontoDaPlaylist(playlist!.id!, index);
+                                        playlistsProvider.salvarPlaylist(playlist.id!);
+                                      },
+                                    ),
+                                    ReorderableDragStartListener(
+                                      index: index,
+                                      child: const Icon(Icons.drag_handle_rounded),
+                                    ),
+                                  ],
                                 ),
-                                ReorderableDragStartListener(
-                                  index: index,
-                                  child: const Icon(Icons.drag_handle_rounded),
+                                onTap: () {
+                                  if (ponto.id != null) {
+                                    _toggleExpandPonto(ponto.id!);
+                                  }
+                                },
+                              ),
+                              if (isExpanded) ...[
+                                const Divider(height: 1, indent: 16, endIndent: 16),
+                                Padding(
+                                  padding: const EdgeInsets.all(14.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Letra do Ponto',
+                                            style: theme.textTheme.labelLarge?.copyWith(
+                                              color: colorScheme.primary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          InkWell(
+                                            onTap: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => PontoDetailScreen(ponto: ponto),
+                                                ),
+                                              );
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              child: Text(
+                                                'Ver detalhes',
+                                                style: theme.textTheme.labelMedium?.copyWith(
+                                                  color: colorScheme.secondary,
+                                                  decoration: TextDecoration.underline,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ponto.pontoLetra.isNotEmpty
+                                          ? SelectableText(
+                                              ponto.pontoLetra,
+                                              style: theme.textTheme.bodyMedium?.copyWith(
+                                                height: 1.4,
+                                              ),
+                                            )
+                                          : Text(
+                                              'Letra não cadastrada.',
+                                              style: theme.textTheme.bodyMedium?.copyWith(
+                                                fontStyle: FontStyle.italic,
+                                                color: theme.hintColor,
+                                              ),
+                                            ),
+                                    ],
+                                  ),
                                 ),
                               ],
-                            ),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => PontoDetailScreen(ponto: ponto),
-                                ),
-                              );
-                            },
+                            ],
                           ),
                         );
                       },
