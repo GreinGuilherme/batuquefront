@@ -100,12 +100,21 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ponto = widget.ponto;
+    final entidadesProvider = context.watch<EntidadesProvider>();
+    final pontosProvider = context.watch<PontosProvider>();
+    final audioProvider = context.watch<AudioPlayerProvider>();
+
+    PontoCantado ponto = widget.ponto;
+    final pontoAtualizado = pontosProvider.pontos.cast<PontoCantado?>().firstWhere(
+      (p) => p?.id == widget.ponto.id,
+      orElse: () => null,
+    );
+    if (pontoAtualizado != null) {
+      ponto = pontoAtualizado;
+    }
+
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final entidadesProvider = context.watch<EntidadesProvider>();
-    final pontosProvider = context.read<PontosProvider>();
-    final audioProvider = context.watch<AudioPlayerProvider>();
 
     Entidade? entidade;
     if (ponto.entidadeId != null) {

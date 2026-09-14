@@ -75,8 +75,27 @@ class PontoService {
             body: jsonEncode(ponto.toJson()),
           )
           .timeout(ApiConfig.timeout);
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return PontoCantado.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+        PontoCantado resultado = ponto;
+        final decodedBody = utf8.decode(response.bodyBytes).trim();
+        if (decodedBody.isNotEmpty) {
+          try {
+            final dynamic jsonResponse = jsonDecode(decodedBody);
+            if (jsonResponse is Map<String, dynamic>) {
+              resultado = PontoCantado.fromJson(jsonResponse);
+            } else if (jsonResponse is num) {
+              resultado = ponto.copyWith(id: jsonResponse.toInt());
+            }
+          } catch (_) {
+            final intId = int.tryParse(decodedBody);
+            if (intId != null) {
+              resultado = ponto.copyWith(id: intId);
+            }
+          }
+        }
+        final novoPonto = resultado.id == null ? resultado.copyWith(id: _nextMockId++) : resultado;
+        _mockPontos.add(novoPonto);
+        return novoPonto;
       }
       throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {
@@ -90,15 +109,50 @@ class PontoService {
   Future<PontoCantado> atualizarPonto(int id, PontoCantado ponto) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/atualizar/$id');
     try {
-      final response = await _client
+      var response = await _client
           .patch(
             uri,
             headers: {'Content-Type': 'application/json; charset=UTF-8'},
             body: jsonEncode(ponto.toJson()),
           )
           .timeout(ApiConfig.timeout);
-      if (response.statusCode == 200) {
-        return PontoCantado.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+
+      // Fallback para PUT se o backend retornar 405 (Method Not Allowed) ou 404
+      if (response.statusCode == 405 || response.statusCode == 404) {
+        response = await _client
+            .put(
+              uri,
+              headers: {'Content-Type': 'application/json; charset=UTF-8'},
+              body: jsonEncode(ponto.toJson()),
+            )
+            .timeout(ApiConfig.timeout);
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+        PontoCantado resultado = ponto.copyWith(id: id);
+        final decodedBody = utf8.decode(response.bodyBytes).trim();
+        if (decodedBody.isNotEmpty) {
+          try {
+            final dynamic jsonResponse = jsonDecode(decodedBody);
+            if (jsonResponse is Map<String, dynamic>) {
+              var updated = PontoCantado.fromJson(jsonResponse);
+              if (updated.nomePonto.isEmpty && ponto.nomePonto.isNotEmpty) {
+                updated = updated.copyWith(nomePonto: ponto.nomePonto);
+              }
+              if (updated.pontoLetra.isEmpty && ponto.pontoLetra.isNotEmpty) {
+                updated = updated.copyWith(pontoLetra: ponto.pontoLetra);
+              }
+              resultado = updated.id == null ? updated.copyWith(id: id) : updated;
+            }
+          } catch (_) {}
+        }
+        final index = _mockPontos.indexWhere((p) => p.id == id);
+        if (index != -1) {
+          _mockPontos[index] = resultado;
+        } else {
+          _mockPontos.add(resultado);
+        }
+        return resultado;
       }
       throw Exception('Erro na requisição: ${response.statusCode}');
     } catch (_) {

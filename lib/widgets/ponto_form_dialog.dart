@@ -9,11 +9,38 @@ class PontoFormDialog extends StatefulWidget {
 
   const PontoFormDialog({super.key, this.ponto});
 
-  static Future<void> show(BuildContext context, {PontoCantado? ponto}) {
-    return showDialog(
+  static Future<void> show(BuildContext context, {PontoCantado? ponto}) async {
+    final bool? sucesso = await showDialog<bool>(
       context: context,
-      builder: (context) => PontoFormDialog(ponto: ponto),
+      builder: (dialogContext) => PontoFormDialog(ponto: ponto),
     );
+
+    if (sucesso == true && context.mounted) {
+      final isEditing = ponto != null;
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.green),
+              SizedBox(width: 8),
+              Text('Sucesso'),
+            ],
+          ),
+          content: Text(
+            isEditing
+                ? 'Ponto cantado atualizado com sucesso!'
+                : 'Ponto cantado cadastrado com sucesso!',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -77,19 +104,28 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
     });
 
     if (sucesso) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditing ? 'Ponto atualizado com sucesso!' : 'Ponto cadastrado com sucesso!',
-          ),
-        ),
-      );
+      Navigator.of(context).pop(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.errorMessage ?? 'Erro ao salvar ponto cantado'),
-          backgroundColor: Colors.red,
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Erro'),
+            ],
+          ),
+          content: Text(
+            provider.errorMessage ??
+                (isEditing ? 'Erro ao atualizar ponto cantado' : 'Erro ao cadastrar ponto cantado'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
     }
@@ -188,7 +224,7 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
