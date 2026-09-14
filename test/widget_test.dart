@@ -142,5 +142,21 @@ void main() {
     await tester.pump();
 
     expect(find.text('Ponto Teste'), findsOneWidget);
+
+    // Minimize player
+    await tester.tap(find.byTooltip('Minimizar player'));
+    await tester.pump();
+    expect(audioProvider.isMinimized, isTrue);
+    expect(find.byTooltip('Expandir player'), findsOneWidget);
+
+    // Expand player
+    await tester.tap(find.byTooltip('Expandir player'));
+    await tester.pump();
+    expect(audioProvider.isMinimized, isFalse);
+
+    // Close player
+    await tester.tap(find.byTooltip('Fechar player'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ponto Teste'), findsNothing);
   });
 }

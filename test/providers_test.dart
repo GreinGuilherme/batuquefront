@@ -230,7 +230,7 @@ void main() {
       expect(provider.playlists.first.pontos.length, equals(countAntes + 1));
       expect(provider.playlists.first.pontos.last.ordem, equals(countAntes + 1));
 
-      provider.removerPontoDaPlaylist(playlistId, provider.playlists.first.pontos.length - 1);
+      provider.removerPontoCantadoDaPlaylist(playlistId, 99);
       expect(provider.playlists.first.pontos.length, equals(countAntes));
     });
 
@@ -302,6 +302,30 @@ void main() {
       await provider.tocarAnterior();
       expect(provider.currentPonto?.id, equals(1));
       expect(provider.currentIndex, equals(0));
+    });
+
+    test('parar zera currentPonto e fecha o player', () async {
+      final ponto = PontoCantado(id: 1, nomePonto: 'Ponto Teste', pontoLetra: 'L1', audioUrl: 'http://a.com/1.mp3');
+      await provider.tocarPonto(ponto);
+      expect(provider.currentPonto, isNotNull);
+
+      await provider.parar();
+      expect(provider.currentPonto, isNull);
+      expect(provider.currentPlaylist, isNull);
+      expect(provider.isStopped, isTrue);
+      expect(provider.isMinimized, isFalse);
+    });
+
+    test('toggleMinimize altera o estado de minimização', () async {
+      final ponto = PontoCantado(id: 1, nomePonto: 'Ponto Teste', pontoLetra: 'L1', audioUrl: 'http://a.com/1.mp3');
+      await provider.tocarPonto(ponto);
+      expect(provider.isMinimized, isFalse);
+
+      provider.toggleMinimize();
+      expect(provider.isMinimized, isTrue);
+
+      provider.toggleMinimize();
+      expect(provider.isMinimized, isFalse);
     });
   });
 }

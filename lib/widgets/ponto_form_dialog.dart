@@ -170,7 +170,9 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
                 controller: _audioUrlController,
                 decoration: const InputDecoration(
                   labelText: 'URL do Áudio',
-                  hintText: 'https://exemplo.com/audio.mp3',
+                  hintText: 'https://exemplo.com/audio.mp3 ou link do YouTube',
+                  helperText: 'Aceita arquivos de áudio (.mp3, .m4a) e links do YouTube (ex: youtube.com/watch?v=...)',
+                  helperMaxLines: 2,
                   prefixIcon: Icon(Icons.link_outlined),
                 ),
                 validator: (value) {

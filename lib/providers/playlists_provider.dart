@@ -178,6 +178,26 @@ class PlaylistsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Remove um PontoCantado por ID da playlist especificada
+  void removerPontoCantadoDaPlaylist(int playlistId, int pontoId) {
+    final index = _playlists.indexWhere((p) => p.id == playlistId);
+    if (index == -1) return;
+
+    final playlist = _playlists[index];
+    final pontos = List<PontoItem>.from(playlist.pontos);
+
+    pontos.removeWhere((item) => item.ponto.id == pontoId);
+
+    // Reatualiza ordens
+    final pontosAtualizados = List<PontoItem>.generate(
+      pontos.length,
+      (i) => pontos[i].copyWith(ordem: i + 1),
+    );
+
+    _playlists[index] = playlist.copyWith(pontos: pontosAtualizados);
+    notifyListeners();
+  }
+
   /// Salva as alterações da playlist (incluindo reordenação/adições) no backend/service
   Future<bool> salvarPlaylist(int playlistId) async {
     final index = _playlists.indexWhere((p) => p.id == playlistId);

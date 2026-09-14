@@ -7,6 +7,7 @@ import '../providers/pontos_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/audio_player_provider.dart';
 import '../widgets/ponto_form_dialog.dart';
+import '../widgets/audio_player_bottom_bar.dart';
 
 class PontoDetailScreen extends StatefulWidget {
   final PontoCantado ponto;
@@ -268,6 +269,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: const AudioPlayerBottomBar(),
     );
   }
 }
