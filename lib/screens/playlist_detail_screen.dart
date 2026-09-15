@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/entidade.dart';
 import '../models/playlist.dart';
 import '../models/ponto_item.dart';
@@ -23,14 +24,67 @@ class PlaylistDetailScreen extends StatefulWidget {
 
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   late final ScrollController _scrollController;
+  final TextEditingController _searchController = TextEditingController();
   bool _showScrollToTop = false;
   final Set<int> _expandedPontoIds = {};
+  bool _isWakelockEnabled = true;
+
+  bool _isFilterExpanded = false;
+  Set<String> _tempSelectedLinhas = {};
+  Set<String> _tempSelectedFalanges = {};
+  Set<int> _tempSelectedEntidades = {};
+
+  Set<String> _appliedLinhas = {};
+  Set<String> _appliedFalanges = {};
+  Set<int> _appliedEntidades = {};
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
+    _enableWakelock();
+  }
+
+  Future<void> _enableWakelock() async {
+    try {
+      await WakelockPlus.enable();
+    } catch (e) {
+      debugPrint('Erro ao ativar wakelock: $e');
+    }
+  }
+
+  Future<void> _disableWakelock() async {
+    try {
+      await WakelockPlus.disable();
+    } catch (e) {
+      debugPrint('Erro ao desativar wakelock: $e');
+    }
+  }
+
+  void _toggleWakelock() {
+    setState(() {
+      _isWakelockEnabled = !_isWakelockEnabled;
+    });
+    if (_isWakelockEnabled) {
+      _enableWakelock();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tela mantida acesa (bloqueio automático desativado)'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      _disableWakelock();
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bloqueio automático de tela permitido'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _onScroll() {
@@ -78,10 +132,44 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     });
   }
 
+  void _toggleFilterPanel() {
+    setState(() {
+      if (!_isFilterExpanded) {
+        _tempSelectedLinhas = Set.from(_appliedLinhas);
+        _tempSelectedFalanges = Set.from(_appliedFalanges);
+        _tempSelectedEntidades = Set.from(_appliedEntidades);
+      }
+      _isFilterExpanded = !_isFilterExpanded;
+    });
+  }
+
+  void _applyFilter() {
+    setState(() {
+      _appliedLinhas = Set.from(_tempSelectedLinhas);
+      _appliedFalanges = Set.from(_tempSelectedFalanges);
+      _appliedEntidades = Set.from(_tempSelectedEntidades);
+      _isFilterExpanded = false;
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _tempSelectedLinhas.clear();
+      _tempSelectedFalanges.clear();
+      _tempSelectedEntidades.clear();
+      _appliedLinhas.clear();
+      _appliedFalanges.clear();
+      _appliedEntidades.clear();
+      _searchController.clear();
+    });
+  }
+
   @override
   void dispose() {
+    _disableWakelock();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -165,19 +253,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final audioProvider = context.watch<AudioPlayerProvider>();
     final entidades = context.watch<EntidadesProvider>().todasEntidades;
 
-    Playlist? playlist;
+    Playlist? foundPlaylist;
     try {
-      playlist = playlistsProvider.playlists.firstWhere((p) => p.id == widget.playlistId);
+      foundPlaylist = playlistsProvider.playlists.firstWhere((p) => p.id == widget.playlistId);
     } catch (_) {
-      playlist = null;
+      foundPlaylist = null;
     }
 
-    if (playlist == null) {
+    if (foundPlaylist == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Playlist')),
         body: const Center(child: Text('Playlist não encontrada.')),
       );
     }
+    final Playlist playlist = foundPlaylist;
 
     final dataStr = playlist.dataCriacao != null
         ? DateFormat('dd/MM/yyyy').format(playlist.dataCriacao!)
@@ -185,6 +274,65 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
     final isPlayingCurrentPlaylist =
         audioProvider.currentPlaylist?.id == playlist.id && audioProvider.isPlaying;
+
+    // Calcular características disponíveis para o filtro em cascata
+    final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
+
+    final entidadesNasLinhas = _tempSelectedLinhas.isEmpty
+        ? entidades
+        : entidades.where((e) => _tempSelectedLinhas.contains(e.linhaEntidade)).toList();
+    final todasFalanges = entidadesNasLinhas.map((e) => e.falange).where((f) => f.isNotEmpty).toSet().toList()..sort();
+
+    final entidadesNasFalanges = _tempSelectedFalanges.isEmpty
+        ? entidadesNasLinhas
+        : entidadesNasLinhas.where((e) => _tempSelectedFalanges.contains(e.falange)).toList();
+
+    final totalFiltrosAtivos = _appliedLinhas.length + _appliedFalanges.length + _appliedEntidades.length;
+
+    // Filtragem dos pontos da playlist
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    final pontosFiltrados = playlist.pontos.where((item) {
+      final ponto = item.ponto;
+
+      // 1. Busca textual (nome ou letra do ponto)
+      if (searchQuery.isNotEmpty) {
+        final matchNome = ponto.nomePonto.toLowerCase().contains(searchQuery);
+        final matchLetra = ponto.pontoLetra.toLowerCase().contains(searchQuery);
+        if (!matchNome && !matchLetra) return false;
+      }
+
+      Entidade? eDoPonto;
+      if (ponto.entidadeId != null) {
+        try {
+          eDoPonto = entidades.firstWhere((e) => e.id == ponto.entidadeId);
+        } catch (_) {}
+      }
+
+      // 2. Linha
+      if (_appliedLinhas.isNotEmpty) {
+        if (eDoPonto == null || !_appliedLinhas.contains(eDoPonto.linhaEntidade)) {
+          return false;
+        }
+      }
+
+      // 3. Falange
+      if (_appliedFalanges.isNotEmpty) {
+        if (eDoPonto == null || !_appliedFalanges.contains(eDoPonto.falange)) {
+          return false;
+        }
+      }
+
+      // 4. Entidades
+      if (_appliedEntidades.isNotEmpty) {
+        if (ponto.entidadeId == null || !_appliedEntidades.contains(ponto.entidadeId)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+
+    final temFiltroOuBuscaAtiva = searchQuery.isNotEmpty || totalFiltrosAtivos > 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -197,7 +345,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            onPressed: () => _confirmDeletePlaylist(context, playlist!),
+            onPressed: () => _confirmDeletePlaylist(context, playlist),
             tooltip: 'Deletar Playlist',
           ),
         ],
@@ -260,7 +408,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           if (isPlayingCurrentPlaylist) {
                             audioProvider.pausar();
                           } else {
-                            audioProvider.tocarPlaylist(playlist!);
+                            audioProvider.tocarPlaylist(playlist);
                           }
                         },
                   icon: Icon(
@@ -277,6 +425,267 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             ),
           ),
 
+          // Search & Action Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Buscar ponto na playlist...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      isDense: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {});
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _toggleFilterPanel,
+                  icon: Icon(
+                    _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
+                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (totalFiltrosAtivos > 0) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              child: Row(
+                children: [
+                  InkWell(
+                    onTap: _clearFilters,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: theme.colorScheme.error,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            'Limpar filtros',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: theme.colorScheme.error,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Cascading Filter Panel (Collapsible)
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Filtro por Características',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => setState(() => _isFilterExpanded = false),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 12),
+
+                  // Nível 1: Linha
+                  Text(
+                    '1. Linha:',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: todasLinhas.map((linha) {
+                      final isSelected = _tempSelectedLinhas.contains(linha);
+                      return FilterChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(linha, style: const TextStyle(fontSize: 12)),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _tempSelectedLinhas.add(linha);
+                            } else {
+                              _tempSelectedLinhas.remove(linha);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Nível 2: Falange (Cascata)
+                  Text(
+                    '2. Falange:',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: todasFalanges.map((falange) {
+                      final isSelected = _tempSelectedFalanges.contains(falange);
+                      return FilterChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(falange, style: const TextStyle(fontSize: 12)),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _tempSelectedFalanges.add(falange);
+                            } else {
+                              _tempSelectedFalanges.remove(falange);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Nível 3: Entidades (Cascata)
+                  Text(
+                    '3. Entidades:',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: entidadesNasFalanges.map((entidade) {
+                      if (entidade.id == null) return const SizedBox.shrink();
+                      final isSelected = _tempSelectedEntidades.contains(entidade.id);
+                      return FilterChip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 12)),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _tempSelectedEntidades.add(entidade.id!);
+                            } else {
+                              _tempSelectedEntidades.remove(entidade.id!);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _tempSelectedLinhas.clear();
+                            _tempSelectedFalanges.clear();
+                            _tempSelectedEntidades.clear();
+                          });
+                        },
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: const Text('Resetar seleções'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: _applyFilter,
+                        icon: const Icon(Icons.check_rounded, size: 16),
+                        label: const Text('Aplicar Filtro'),
+                        style: FilledButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
+          ),
+
           // Seção de Controle da Lista (Responsiva sem overflow)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -288,7 +697,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Pontos na Sequência',
+                        'Pontos na Sequência (${pontosFiltrados.length})',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -296,9 +705,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       ),
                     ),
                     TextButton.icon(
-                      onPressed: () => _showAddPontoModal(context, playlist!),
+                      onPressed: () => _showAddPontoModal(context, playlist),
                       icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text(''),
+                      label: const Text('Adicionar'),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         minimumSize: Size.zero,
@@ -308,34 +717,60 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: playlist.pontos.isEmpty
-                          ? null
-                          : () => _expandAll(playlist!.pontos),
-                      icon: const Icon(Icons.unfold_more_rounded, size: 18),
-                      label: const Text('Expandir todos'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(fontSize: 12),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: playlist.pontos.isEmpty
+                            ? null
+                            : () => _expandAll(playlist.pontos),
+                        icon: const Icon(Icons.unfold_more_rounded, size: 18),
+                        label: const Text('Expandir todos'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
-                      icon: const Icon(Icons.unfold_less_rounded, size: 18),
-                      label: const Text('Recolher todos'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        textStyle: const TextStyle(fontSize: 12),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
+                        icon: const Icon(Icons.unfold_less_rounded, size: 18),
+                        label: const Text('Recolher todos'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _toggleWakelock,
+                        icon: Icon(
+                          _isWakelockEnabled
+                              ? Icons.screen_lock_portrait_rounded
+                              : Icons.lock_open_rounded,
+                          size: 18,
+                          color: _isWakelockEnabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                        ),
+                        label: Text(
+                          _isWakelockEnabled ? 'Tela acesa' : 'Bloqueio auto',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12),
+                          backgroundColor: _isWakelockEnabled
+                              ? colorScheme.primaryContainer.withValues(alpha: 0.5)
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -366,7 +801,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ),
                               const SizedBox(height: 16),
                               ElevatedButton.icon(
-                                onPressed: () => _showAddPontoModal(context, playlist!),
+                                onPressed: () => _showAddPontoModal(context, playlist),
                                 icon: const Icon(Icons.add_rounded),
                                 label: const Text('Adicionar Pontos'),
                               ),
@@ -375,250 +810,327 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         ),
                       ),
                     )
-                  : ReorderableListView.builder(
-                      scrollController: _scrollController,
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: playlist.pontos.length,
-                      onReorderItem: (oldIndex, newIndex) {
-                        playlistsProvider.reordenarPontosLocais(
-                          playlist!.id!,
-                          oldIndex,
-                          newIndex > oldIndex ? newIndex + 1 : newIndex,
-                        );
-                        playlistsProvider.salvarPlaylist(playlist.id!);
-                      },
-                      itemBuilder: (context, index) {
-                        final item = playlist!.pontos[index];
-                        final ponto = item.ponto;
-                        final isPlayingThisTrack = audioProvider.currentPonto?.id == ponto.id &&
-                            audioProvider.currentPlaylist?.id == playlist.id &&
-                            audioProvider.isPlaying;
-
-                        final isExpanded = ponto.id != null && _expandedPontoIds.contains(ponto.id);
-
-                        String? nomeEntidade;
-                        if (ponto.entidadeId != null) {
-                          try {
-                            nomeEntidade = entidades.firstWhere((e) => e.id == ponto.entidadeId).nomeEntidade;
-                          } catch (_) {}
-                        }
-
-                        return Card(
-                          key: ValueKey('item_${ponto.id}_$index'),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                onTap: () {
-                                  if (ponto.id != null) {
-                                    _toggleExpandPonto(ponto.id!);
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: isPlayingThisTrack
-                                            ? colorScheme.secondary
-                                            : colorScheme.primaryContainer,
-                                        foregroundColor: isPlayingThisTrack
-                                            ? colorScheme.onSecondary
-                                            : colorScheme.onPrimaryContainer,
-                                        child: Text(
-                                          '${item.ordem}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Nome do ponto acima de tudo (pode passar por cima dos botões)
-                                            Text(
-                                              ponto.nomePonto,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.w600,
-                                                color: isPlayingThisTrack ? colorScheme.primary : null,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-
-                                            // Abaixo do nome: Nome da entidade (esquerda) e Botões de Ação (direita)
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    nomeEntidade ?? 'Sem entidade',
-                                                    style: theme.textTheme.bodySmall?.copyWith(
-                                                      color: colorScheme.onSurfaceVariant,
-                                                      fontSize: 12,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    IconButton(
-                                                      constraints: const BoxConstraints(),
-                                                      padding: const EdgeInsets.all(4),
-                                                      visualDensity: VisualDensity.compact,
-                                                      iconSize: 20,
-                                                      icon: Icon(
-                                                        isPlayingThisTrack
-                                                            ? Icons.pause_circle_filled_rounded
-                                                            : Icons.play_circle_fill_rounded,
-                                                        color: colorScheme.primary,
-                                                      ),
-                                                      tooltip: isPlayingThisTrack ? 'Pausar' : 'Tocar',
-                                                      onPressed: () {
-                                                        if (isPlayingThisTrack) {
-                                                          audioProvider.pausar();
-                                                        } else {
-                                                          audioProvider.tocarPonto(
-                                                            ponto,
-                                                            playlist: playlist,
-                                                            index: index,
-                                                            item: item,
-                                                          );
-                                                        }
-                                                      },
-                                                    ),
-                                                    IconButton(
-                                                      constraints: const BoxConstraints(),
-                                                      padding: const EdgeInsets.all(4),
-                                                      visualDensity: VisualDensity.compact,
-                                                      iconSize: 20,
-                                                      icon: Icon(
-                                                        isExpanded
-                                                            ? Icons.keyboard_arrow_up_rounded
-                                                            : Icons.keyboard_arrow_down_rounded,
-                                                        color: colorScheme.onSurfaceVariant,
-                                                      ),
-                                                      tooltip: isExpanded ? 'Recolher Letra' : 'Expandir Letra',
-                                                      onPressed: () {
-                                                        if (ponto.id != null) {
-                                                          _toggleExpandPonto(ponto.id!);
-                                                        }
-                                                      },
-                                                    ),
-                                                    IconButton(
-                                                      constraints: const BoxConstraints(),
-                                                      padding: const EdgeInsets.all(4),
-                                                      visualDensity: VisualDensity.compact,
-                                                      iconSize: 20,
-                                                      icon: const Icon(
-                                                        Icons.remove_circle_outline_rounded,
-                                                        color: Colors.redAccent,
-                                                      ),
-                                                      tooltip: 'Remover da Playlist',
-                                                      onPressed: () {
-                                                        playlistsProvider.removerPontoDaPlaylist(playlist!.id!, index);
-                                                        playlistsProvider.salvarPlaylist(playlist.id!);
-                                                      },
-                                                    ),
-                                                    ReorderableDragStartListener(
-                                                      index: index,
-                                                      child: Padding(
-                                                        padding: const EdgeInsets.all(4),
-                                                        child: Icon(
-                                                          Icons.drag_handle_rounded,
-                                                          size: 20,
-                                                          color: colorScheme.onSurfaceVariant,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                  : pontosFiltrados.isEmpty
+                      ? SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.4,
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off_rounded,
+                                    size: 64,
+                                    color: colorScheme.outline,
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Nenhum ponto encontrado na playlist com os filtros aplicados.',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  OutlinedButton.icon(
+                                    onPressed: _clearFilters,
+                                    icon: const Icon(Icons.close_rounded),
+                                    label: const Text('Limpar Filtros'),
+                                  ),
+                                ],
                               ),
-                              if (isExpanded) ...[
-                                const Divider(height: 1, indent: 16, endIndent: 16),
-                                Padding(
-                                  padding: const EdgeInsets.all(14.0),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            'Letra do Ponto',
-                                            style: theme.textTheme.labelLarge?.copyWith(
-                                              color: colorScheme.primary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          InkWell(
-                                            onTap: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (context) => PontoDetailScreen(ponto: ponto),
-                                                ),
-                                              );
-                                            },
-                                            child: Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                              child: Text(
-                                                'Ver detalhes',
-                                                style: theme.textTheme.labelMedium?.copyWith(
-                                                  color: colorScheme.secondary,
-                                                  decoration: TextDecoration.underline,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      ponto.pontoLetra.isNotEmpty
-                                          ? SelectableText(
-                                              ponto.pontoLetra,
-                                              style: theme.textTheme.bodyMedium?.copyWith(
-                                                height: 1.4,
-                                              ),
-                                            )
-                                          : Text(
-                                              'Letra não cadastrada.',
-                                              style: theme.textTheme.bodyMedium?.copyWith(
-                                                fontStyle: FontStyle.italic,
-                                                color: theme.hintColor,
-                                              ),
-                                            ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
+                            ),
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : temFiltroOuBuscaAtiva
+                          ? ListView.builder(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              itemCount: pontosFiltrados.length,
+                              itemBuilder: (context, index) {
+                                final item = pontosFiltrados[index];
+                                return _buildPontoCard(
+                                  context: context,
+                                  item: item,
+                                  index: index,
+                                  playlist: playlist,
+                                  entidades: entidades,
+                                  audioProvider: audioProvider,
+                                  playlistsProvider: playlistsProvider,
+                                  colorScheme: colorScheme,
+                                  theme: theme,
+                                  isFiltered: true,
+                                );
+                              },
+                            )
+                          : ReorderableListView.builder(
+                              scrollController: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              itemCount: playlist.pontos.length,
+                              onReorderItem: (oldIndex, newIndex) {
+                                playlistsProvider.reordenarPontosLocais(
+                                  playlist.id!,
+                                  oldIndex,
+                                  newIndex > oldIndex ? newIndex + 1 : newIndex,
+                                );
+                                playlistsProvider.salvarPlaylist(playlist.id!);
+                              },
+                              itemBuilder: (context, index) {
+                                final item = playlist.pontos[index];
+                                return _buildPontoCard(
+                                  context: context,
+                                  item: item,
+                                  index: index,
+                                  playlist: playlist,
+                                  entidades: entidades,
+                                  audioProvider: audioProvider,
+                                  playlistsProvider: playlistsProvider,
+                                  colorScheme: colorScheme,
+                                  theme: theme,
+                                  isFiltered: false,
+                                );
+                              },
+                            ),
             ),
           ),
         ],
       ),
       bottomNavigationBar: const AudioPlayerBottomBar(),
+    );
+  }
+
+  Widget _buildPontoCard({
+    required BuildContext context,
+    required PontoItem item,
+    required int index,
+    required Playlist playlist,
+    required List<Entidade> entidades,
+    required AudioPlayerProvider audioProvider,
+    required PlaylistsProvider playlistsProvider,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    required bool isFiltered,
+  }) {
+    final ponto = item.ponto;
+    final isPlayingThisTrack = audioProvider.currentPonto?.id == ponto.id &&
+        audioProvider.currentPlaylist?.id == playlist.id &&
+        audioProvider.isPlaying;
+
+    final isExpanded = ponto.id != null && _expandedPontoIds.contains(ponto.id);
+
+    String? nomeEntidade;
+    if (ponto.entidadeId != null) {
+      try {
+        nomeEntidade = entidades.firstWhere((e) => e.id == ponto.entidadeId).nomeEntidade;
+      } catch (_) {}
+    }
+
+    return Card(
+      key: ValueKey('item_${ponto.id}_$index'),
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () {
+              if (ponto.id != null) {
+                _toggleExpandPonto(ponto.id!);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: isPlayingThisTrack
+                        ? colorScheme.secondary
+                        : colorScheme.primaryContainer,
+                    foregroundColor: isPlayingThisTrack
+                        ? colorScheme.onSecondary
+                        : colorScheme.onPrimaryContainer,
+                    child: Text(
+                      '${item.ordem}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          ponto.nomePonto,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.w600,
+                            color: isPlayingThisTrack ? colorScheme.primary : null,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                nomeEntidade ?? 'Sem entidade',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                  visualDensity: VisualDensity.compact,
+                                  iconSize: 20,
+                                  icon: Icon(
+                                    isPlayingThisTrack
+                                        ? Icons.pause_circle_filled_rounded
+                                        : Icons.play_circle_fill_rounded,
+                                    color: colorScheme.primary,
+                                  ),
+                                  tooltip: isPlayingThisTrack ? 'Pausar' : 'Tocar',
+                                  onPressed: () {
+                                    if (isPlayingThisTrack) {
+                                      audioProvider.pausar();
+                                    } else {
+                                      audioProvider.tocarPonto(
+                                        ponto,
+                                        playlist: playlist,
+                                        index: index,
+                                        item: item,
+                                      );
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                  visualDensity: VisualDensity.compact,
+                                  iconSize: 20,
+                                  icon: Icon(
+                                    isExpanded
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  tooltip: isExpanded ? 'Recolher Letra' : 'Expandir Letra',
+                                  onPressed: () {
+                                    if (ponto.id != null) {
+                                      _toggleExpandPonto(ponto.id!);
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                  visualDensity: VisualDensity.compact,
+                                  iconSize: 20,
+                                  icon: const Icon(
+                                    Icons.remove_circle_outline_rounded,
+                                    color: Colors.redAccent,
+                                  ),
+                                  tooltip: 'Remover da Playlist',
+                                  onPressed: () {
+                                    playlistsProvider.removerPontoDaPlaylist(playlist.id!, index);
+                                    playlistsProvider.salvarPlaylist(playlist.id!);
+                                  },
+                                ),
+                                if (!isFiltered)
+                                  ReorderableDragStartListener(
+                                    index: index,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.drag_handle_rounded,
+                                        size: 20,
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Letra do Ponto',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PontoDetailScreen(ponto: ponto),
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          child: Text(
+                            'Ver detalhes',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colorScheme.secondary,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ponto.pontoLetra.isNotEmpty
+                      ? SelectableText(
+                          ponto.pontoLetra,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            height: 1.4,
+                          ),
+                        )
+                      : Text(
+                          'Letra não cadastrada.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: theme.hintColor,
+                          ),
+                        ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
