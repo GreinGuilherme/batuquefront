@@ -11,7 +11,7 @@
 .packages
 .pub-cache/
 .pub/
-/build/
+build/
 
 # Android / Gradle
 .gradle/
@@ -21,6 +21,6 @@ local.properties
 .cxx/
 
 # IDE / Editor
-/.idea/
+.idea/
 # Widget Preview related
 .widget_preview/
