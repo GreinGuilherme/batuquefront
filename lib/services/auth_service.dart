@@ -29,13 +29,12 @@ class AuthService {
     return Uri.parse('$base$endpoint');
   }
 
-  /// Realiza login via email e senha (@PostMapping("/login"))
-  /// Garantido que NÃO envia cabeçalhos de Authorization/Cookie (pois não possui token prévio)
+  /// Realiza login via email e senha (@PostMapping("/auth/login"))
   Future<Map<String, dynamic>> login({
     required String email,
     required String senha,
   }) async {
-    Uri uri = _getUri('/login');
+    Uri uri = _getUri('/auth/login');
 
     final bodyJson = jsonEncode({
       'email': email,
@@ -51,9 +50,9 @@ class AuthService {
           )
           .timeout(ApiConfig.timeout);
 
-      // Fallback se o backend mapear em /auth/login
+      // Fallback para /login caso o controller não utilize o prefixo /auth
       if (response.statusCode == 404) {
-        uri = _getUri('/auth/login');
+        uri = _getUri('/login');
         response = await _client
             .post(
               uri,
@@ -65,11 +64,22 @@ class AuthService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         String token = '';
+        String rawNome = '';
+        String userEmail = email;
+        String userRole = 'USUARIO';
+
         final responseBody = utf8.decode(response.bodyBytes).trim();
 
         if (responseBody.startsWith('{')) {
           final Map<String, dynamic> data = jsonDecode(responseBody);
           token = data['token'] ?? data['jwt'] ?? data['accessToken'] ?? '';
+          rawNome = data['nome'] ?? data['name'] ?? data['username'] ?? '';
+          if (data.containsKey('email') && data['email'].toString().contains('@')) {
+            userEmail = data['email'].toString();
+          }
+          if (data.containsKey('role')) {
+            userRole = data['role'].toString();
+          }
         } else {
           token = responseBody.replaceAll('"', '');
         }
@@ -79,33 +89,54 @@ class AuthService {
         }
 
         final payload = parseJwt(token);
-        final String subject = payload['sub']?.toString() ?? email;
-        final String nome = payload['nome']?.toString() ?? payload['name']?.toString() ?? subject.split('@').first;
-        final String role = payload['role']?.toString() ?? 'USUARIO';
+        final String subject = payload['sub']?.toString() ?? userEmail;
+
+        if (rawNome.isEmpty) {
+          rawNome = payload['nome']?.toString() ??
+              payload['name']?.toString() ??
+              payload['username']?.toString() ??
+              '';
+        }
+
+        if (payload.containsKey('role')) {
+          userRole = payload['role'].toString();
+        }
+
+        // Sanitiza o nome do usuário para nunca exibir a classe/entidade Java
+        final String nomeSanitizado = _sanitizarNome(rawNome, subject, userEmail);
 
         await _salvarSessao(
           token: token,
-          email: email,
-          nome: nome,
-          role: role,
+          email: userEmail,
+          nome: nomeSanitizado,
+          role: userRole,
         );
 
         return {
           'token': token,
-          'email': email,
-          'nome': nome,
-          'role': role,
+          'email': userEmail,
+          'nome': nomeSanitizado,
+          'role': userRole,
           'payload': payload,
         };
       } else {
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          throw Exception('Falha no login: usuário ou senha incorretos.');
+        }
         final errorMsg = _extrairMensagemErro(response);
-        throw Exception(errorMsg ?? 'Falha no login (Status: ${response.statusCode})');
+        if (errorMsg != null &&
+            errorMsg.isNotEmpty &&
+            !errorMsg.contains('403') &&
+            !errorMsg.contains('401')) {
+          throw Exception(errorMsg);
+        }
+        throw Exception('Falha no login: usuário ou senha incorretos.');
       }
     } catch (e) {
       if (ApiConfig.enableMockFallback) {
         final mockToken = _gerarMockJwt(email);
         final payload = parseJwt(mockToken);
-        final nome = email.split('@').first;
+        final nome = _extrairNomeDoEmail(email);
         await _salvarSessao(
           token: mockToken,
           email: email,
@@ -124,15 +155,14 @@ class AuthService {
     }
   }
 
-  /// Realiza cadastro de novo usuário (@PostMapping("/registrar"))
-  /// Garantido que NÃO envia cabeçalhos de Authorization/Cookie
+  /// Realiza cadastro de novo usuário (@PostMapping("/auth/registrar"))
   Future<bool> cadastrar({
     required String nome,
     required String email,
     required String senha,
     required String role, // ADM, FILHO, USUARIO
   }) async {
-    Uri uri = _getUri('/registrar');
+    Uri uri = _getUri('/auth/registrar');
 
     final bodyJson = jsonEncode({
       'nome': nome,
@@ -150,9 +180,9 @@ class AuthService {
           )
           .timeout(ApiConfig.timeout);
 
-      // Fallback se o backend mapear em /auth/registrar ou /auth/cadastrar
+      // Fallback para /registrar caso o controller não utilize o prefixo /auth
       if (response.statusCode == 404) {
-        uri = _getUri('/auth/registrar');
+        uri = _getUri('/registrar');
         response = await _client
             .post(
               uri,
@@ -166,7 +196,7 @@ class AuthService {
         return true;
       } else {
         final errorMsg = _extrairMensagemErro(response);
-        throw Exception(errorMsg ?? 'Erro ao cadastrar (Status: ${response.statusCode})');
+        throw Exception(errorMsg ?? 'Erro ao cadastrar usuário.');
       }
     } catch (e) {
       if (ApiConfig.enableMockFallback) {
@@ -174,6 +204,39 @@ class AuthService {
       }
       rethrow;
     }
+  }
+
+  /// Sanitiza o nome de exibição descartando nomes de pacotes/entidades do Java
+  static String _sanitizarNome(String rawNome, String subject, String email) {
+    final candidatos = [rawNome, subject];
+
+    for (final c in candidatos) {
+      final val = c.trim();
+      if (val.isNotEmpty) {
+        // Rejeita se for classe/pacote Java (ex: com.api.batuque...UsuarioEntity) ou email
+        final eClasseJava = val.startsWith('com.') ||
+            val.contains('.entity.') ||
+            val.contains('Entity') ||
+            val.contains('UsuarioJpa') ||
+            val.contains('adpater');
+        final eEmail = val.contains('@');
+
+        if (!eClasseJava && !eEmail) {
+          return val;
+        }
+      }
+    }
+
+    // Se nenhum candidato for um nome válido, formata a partir do e-mail
+    return _extrairNomeDoEmail(email);
+  }
+
+  /// Extrai o nome amigável a partir do e-mail (ex: guilherme@gmail.com -> Guilherme)
+  static String _extrairNomeDoEmail(String email) {
+    if (!email.contains('@')) return email.isEmpty ? 'Usuário' : email;
+    final prefix = email.split('@').first;
+    if (prefix.isEmpty) return 'Usuário';
+    return prefix[0].toUpperCase() + prefix.substring(1);
   }
 
   Future<void> _salvarSessao({
@@ -197,11 +260,14 @@ class AuthService {
 
   Future<Map<String, String?>> getSavedUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString(_userEmailKey) ?? '';
+    final savedNome = prefs.getString(_userNameKey) ?? '';
+
     return {
       'token': prefs.getString(_tokenKey),
       'cookie': prefs.getString(_cookieKey),
-      'email': prefs.getString(_userEmailKey),
-      'nome': prefs.getString(_userNameKey),
+      'email': savedEmail,
+      'nome': _sanitizarNome(savedNome, '', savedEmail),
       'role': prefs.getString(_userRoleKey),
     };
   }
