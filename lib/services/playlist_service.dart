@@ -2,20 +2,26 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/playlist.dart';
 import 'api_config.dart';
+import 'auth_service.dart';
 import 'mock_data.dart';
 
 class PlaylistService {
   final http.Client _client;
+  final AuthService _authService;
 
-  PlaylistService({http.Client? client}) : _client = client ?? http.Client();
+  PlaylistService({http.Client? client, AuthService? authService})
+      : _client = client ?? http.Client(),
+        _authService = authService ?? AuthService();
 
   final List<Playlist> _mockPlaylists = List.from(MockData.playlists);
   int _nextMockId = 100;
 
   Future<List<Playlist>> buscarPlaylists() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/buscar');
+    final headers = await _authService.getAuthHeaders();
+
     try {
-      final response = await _client.get(uri).timeout(ApiConfig.timeout);
+      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
@@ -31,8 +37,10 @@ class PlaylistService {
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/playlist/buscar/filtro?termo=${Uri.encodeComponent(termo)}',
     );
+    final headers = await _authService.getAuthHeaders();
+
     try {
-      final response = await _client.get(uri).timeout(ApiConfig.timeout);
+      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
@@ -50,11 +58,13 @@ class PlaylistService {
 
   Future<Playlist> cadastrarPlaylist(Playlist playlist) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/cadastrar');
+    final headers = await _authService.getAuthHeaders();
+
     try {
       final response = await _client
           .post(
             uri,
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            headers: headers,
             body: jsonEncode(playlist.toUpdateJson()),
           )
           .timeout(ApiConfig.timeout);
@@ -98,11 +108,13 @@ class PlaylistService {
 
   Future<Playlist> atualizarPlaylist(int id, Playlist playlist) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/atualizar/$id');
+    final headers = await _authService.getAuthHeaders();
+
     try {
       final response = await _client
           .put(
             uri,
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            headers: headers,
             body: jsonEncode(playlist.toUpdateJson()),
           )
           .timeout(ApiConfig.timeout);
@@ -149,8 +161,10 @@ class PlaylistService {
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/deletar')
         .replace(queryParameters: queryParams);
+    final headers = await _authService.getAuthHeaders();
+
     try {
-      final response = await _client.delete(uri).timeout(ApiConfig.timeout);
+      final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       }

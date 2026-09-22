@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/playlists_provider.dart';
@@ -54,13 +55,15 @@ class _SplashScreenState extends State<SplashScreen>
     // Garante que a animação e o carregamento durem pelo menos 2 segundos para boa UX
     final minTimer = Future.delayed(const Duration(seconds: 2));
 
-    // Recarrega ou aguarda os providers carregarem os dados iniciais
+    // Restaura a sessão do usuário (auto login) e recarrega os dados dos providers
+    final authFuture = context.read<AuthProvider>().initAuth();
     final entidadesFuture = context.read<EntidadesProvider>().carregarEntidades();
     final pontosFuture = context.read<PontosProvider>().carregarPontos();
     final playlistsFuture = context.read<PlaylistsProvider>().carregarPlaylists();
 
     await Future.wait([
       minTimer,
+      authFuture,
       entidadesFuture,
       pontosFuture,
       playlistsFuture,

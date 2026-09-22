@@ -2,20 +2,26 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/ponto_cantado.dart';
 import 'api_config.dart';
+import 'auth_service.dart';
 import 'mock_data.dart';
 
 class PontoService {
   final http.Client _client;
+  final AuthService _authService;
 
-  PontoService({http.Client? client}) : _client = client ?? http.Client();
+  PontoService({http.Client? client, AuthService? authService})
+      : _client = client ?? http.Client(),
+        _authService = authService ?? AuthService();
 
   final List<PontoCantado> _mockPontos = List.from(MockData.pontos);
   int _nextMockId = 100;
 
   Future<List<PontoCantado>> buscarPontos() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/buscar');
+    final headers = await _authService.getAuthHeaders();
+
     try {
-      final response = await _client.get(uri).timeout(ApiConfig.timeout);
+      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
@@ -38,9 +44,10 @@ class PontoService {
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/buscar/filtro')
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+    final headers = await _authService.getAuthHeaders();
 
     try {
-      final response = await _client.get(uri).timeout(ApiConfig.timeout);
+      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
@@ -67,11 +74,13 @@ class PontoService {
 
   Future<PontoCantado> cadastrarPonto(PontoCantado ponto) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/cadastrar');
+    final headers = await _authService.getAuthHeaders();
+
     try {
       final response = await _client
           .post(
             uri,
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            headers: headers,
             body: jsonEncode(ponto.toJson()),
           )
           .timeout(ApiConfig.timeout);
@@ -108,11 +117,13 @@ class PontoService {
 
   Future<PontoCantado> atualizarPonto(int id, PontoCantado ponto) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/atualizar/$id');
+    final headers = await _authService.getAuthHeaders();
+
     try {
       var response = await _client
           .patch(
             uri,
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            headers: headers,
             body: jsonEncode(ponto.toJson()),
           )
           .timeout(ApiConfig.timeout);
@@ -122,7 +133,7 @@ class PontoService {
         response = await _client
             .put(
               uri,
-              headers: {'Content-Type': 'application/json; charset=UTF-8'},
+              headers: headers,
               body: jsonEncode(ponto.toJson()),
             )
             .timeout(ApiConfig.timeout);
@@ -181,9 +192,10 @@ class PontoService {
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/deletar')
         .replace(queryParameters: queryParams);
+    final headers = await _authService.getAuthHeaders();
 
     try {
-      final response = await _client.delete(uri).timeout(ApiConfig.timeout);
+      final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       }

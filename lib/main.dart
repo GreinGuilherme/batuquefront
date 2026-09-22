@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
 import 'providers/entidades_provider.dart';
 import 'providers/pontos_provider.dart';
 import 'providers/playlists_provider.dart';
@@ -20,6 +21,7 @@ class BatuqueApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => EntidadesProvider()),
         ChangeNotifierProvider(create: (_) => PontosProvider()),
         ChangeNotifierProvider(create: (_) => PlaylistsProvider()),

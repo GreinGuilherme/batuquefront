@@ -2,20 +2,26 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/entidade.dart';
 import 'api_config.dart';
+import 'auth_service.dart';
 import 'mock_data.dart';
 
 class EntidadeService {
   final http.Client _client;
+  final AuthService _authService;
 
-  EntidadeService({http.Client? client}) : _client = client ?? http.Client();
+  EntidadeService({http.Client? client, AuthService? authService})
+      : _client = client ?? http.Client(),
+        _authService = authService ?? AuthService();
 
   final List<Entidade> _mockEntidades = List.from(MockData.entidades);
   int _nextMockId = 100;
 
   Future<List<Entidade>> buscarEntidades() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar');
+    final headers = await _authService.getAuthHeaders();
+
     try {
-      final response = await _client.get(uri).timeout(ApiConfig.timeout);
+      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
@@ -31,8 +37,10 @@ class EntidadeService {
     final uri = Uri.parse(
       '${ApiConfig.baseUrl}/entidade/buscar/filtrar?termo=${Uri.encodeComponent(termo)}',
     );
+    final headers = await _authService.getAuthHeaders();
+
     try {
-      final response = await _client.get(uri).timeout(ApiConfig.timeout);
+      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200) {
         final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
         return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
@@ -52,11 +60,13 @@ class EntidadeService {
 
   Future<Entidade> cadastrarEntidade(Entidade entidade) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/cadastrar');
+    final headers = await _authService.getAuthHeaders();
+
     try {
       final response = await _client
           .post(
             uri,
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            headers: headers,
             body: jsonEncode(entidade.toJson()),
           )
           .timeout(ApiConfig.timeout);
@@ -74,11 +84,13 @@ class EntidadeService {
 
   Future<Entidade> atualizarEntidade(int id, Entidade entidade) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/atualizar/$id');
+    final headers = await _authService.getAuthHeaders();
+
     try {
       final response = await _client
           .patch(
             uri,
-            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            headers: headers,
             body: jsonEncode(entidade.toJson()),
           )
           .timeout(ApiConfig.timeout);
@@ -109,9 +121,10 @@ class EntidadeService {
 
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar')
         .replace(queryParameters: queryParams);
+    final headers = await _authService.getAuthHeaders();
 
     try {
-      final response = await _client.delete(uri).timeout(ApiConfig.timeout);
+      final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
       if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       }
