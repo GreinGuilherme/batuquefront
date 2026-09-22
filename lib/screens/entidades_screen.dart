@@ -12,7 +12,10 @@ class EntidadesScreen extends StatefulWidget {
   State<EntidadesScreen> createState() => _EntidadesScreenState();
 }
 
-class _EntidadesScreenState extends State<EntidadesScreen> {
+class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
@@ -128,6 +131,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final provider = context.watch<EntidadesProvider>();
     final entidades = provider.entidades;
     final todasEntidades = provider.todasEntidades;
@@ -165,18 +169,20 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
         children: [
           // Search & Action Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _searchController,
+                    style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Buscar por nome, falange ou linha...',
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintStyle: const TextStyle(fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded),
+                              icon: const Icon(Icons.clear_rounded, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 provider.filtrarEntidades('');
@@ -184,8 +190,10 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                             )
                           : null,
                       filled: true,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -197,12 +205,13 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                 const SizedBox(width: 8),
                 IconButton.filled(
                   onPressed: () => EntidadeFormDialog.show(context),
-                  icon: const Icon(Icons.add_rounded),
+                  icon: const Icon(Icons.add_rounded, size: 20),
                   style: IconButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    minimumSize: const Size(56, 56),
+                    minimumSize: const Size(38, 38),
+                    padding: EdgeInsets.zero,
                   ),
                   tooltip: 'Nova Entidade',
                 ),
@@ -212,23 +221,25 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
 
           // Cascading Filter Trigger & Active Filters summary
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             child: Row(
               children: [
                 OutlinedButton.icon(
                   onPressed: () => _toggleFilterPanel(provider),
                   icon: Icon(
                     _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                    size: 18,
+                    size: 15,
                   ),
                   label: Text(
                     totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                   ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
                         ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
@@ -239,21 +250,21 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                   const SizedBox(width: 8),
                   InkWell(
                     onTap: () => _clearFilters(provider),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       child: Row(
                         children: [
                           Icon(
                             Icons.close_rounded,
-                            size: 16,
+                            size: 14,
                             color: Theme.of(context).colorScheme.error,
                           ),
                           const SizedBox(width: 2),
                           Text(
                             'Limpar filtros',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: Theme.of(context).colorScheme.error,
                               fontWeight: FontWeight.bold,
                             ),
@@ -271,11 +282,11 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant,
                 ),
@@ -291,34 +302,39 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                         'Filtro por Características',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
+                        icon: const Icon(Icons.close_rounded, size: 16),
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () => setState(() => _isFilterExpanded = false),
                       ),
                     ],
                   ),
-                  const Divider(height: 12),
+                  const Divider(height: 8),
 
                   // Nível 1: Linha
                   Text(
                     '1. Linha:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: todasLinhas.map((linha) {
                       final isSelected = _tempSelectedLinhas.contains(linha);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(linha, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(linha, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -332,25 +348,27 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Nível 2: Falange (Cascata)
                   Text(
                     '2. Falange:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: todasFalanges.map((falange) {
                       final isSelected = _tempSelectedFalanges.contains(falange);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(falange, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(falange, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -364,7 +382,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
 
                   // Buttons
                   Row(
@@ -379,19 +397,20 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                         },
                         style: TextButton.styleFrom(
                           visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         ),
-                        child: const Text('Resetar seleções'),
+                        child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       FilledButton.icon(
                         onPressed: () => _applyFilter(provider),
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: const Text('Aplicar Filtro'),
+                        icon: const Icon(Icons.check_rounded, size: 14),
+                        label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
@@ -404,7 +423,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
             duration: const Duration(milliseconds: 250),
           ),
 
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
 
           Expanded(
             child: RefreshIndicator(
@@ -422,15 +441,15 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                                 children: [
                                   Icon(
                                     Icons.people_outline_rounded,
-                                    size: 64,
+                                    size: 48,
                                     color: Theme.of(context).colorScheme.outline,
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
                                   Text(
                                     provider.temFiltrosAtivos
                                         ? 'Nenhuma entidade encontrada com os filtros aplicados.'
                                         : 'Nenhuma entidade cadastrada ainda.',
-                                    style: Theme.of(context).textTheme.bodyLarge,
+                                    style: Theme.of(context).textTheme.bodyMedium,
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -445,12 +464,12 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                               return GridView.builder(
                                 controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(12),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 3.2,
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 3.8,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
                                 ),
                                 itemCount: entidades.length,
                                 itemBuilder: (context, index) {
@@ -466,12 +485,12 @@ class _EntidadesScreenState extends State<EntidadesScreen> {
                               return ListView.builder(
                                 controller: _scrollController,
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                 itemCount: entidades.length,
                                 itemBuilder: (context, index) {
                                   final entidade = entidades[index];
                                   return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.only(bottom: 6),
                                     child: EntidadeCard(
                                       entidade: entidade,
                                       onEdit: () => EntidadeFormDialog.show(context, entidade: entidade),

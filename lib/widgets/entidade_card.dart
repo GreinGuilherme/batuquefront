@@ -28,7 +28,7 @@ class EntidadeCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -40,6 +40,7 @@ class EntidadeCard extends StatelessWidget {
                     child: Text(
                       entidade.nomeEntidade,
                       style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                       maxLines: 1,
@@ -48,7 +49,7 @@ class EntidadeCard extends StatelessWidget {
                   ),
                   if (onEdit != null || onDelete != null)
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert_rounded, size: 20),
+                      icon: const Icon(Icons.more_vert_rounded, size: 18),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onSelected: (value) {
@@ -64,9 +65,9 @@ class EntidadeCard extends StatelessWidget {
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit_outlined, size: 20),
+                                Icon(Icons.edit_outlined, size: 18),
                                 SizedBox(width: 8),
-                                Text('Editar'),
+                                Text('Editar', style: TextStyle(fontSize: 13)),
                               ],
                             ),
                           ),
@@ -75,9 +76,9 @@ class EntidadeCard extends StatelessWidget {
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                Icon(Icons.delete_outline, size: 18, color: Colors.red),
                                 SizedBox(width: 8),
-                                Text('Deletar', style: TextStyle(color: Colors.red)),
+                                Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
                               ],
                             ),
                           ),
@@ -86,10 +87,10 @@ class EntidadeCard extends StatelessWidget {
                 ],
               ),
               if (temFalange || temLinha) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
+                  spacing: 6,
+                  runSpacing: 2,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     if (temFalange)
@@ -98,13 +99,14 @@ class EntidadeCard extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.grid_view_rounded,
-                            size: 13,
+                            size: 11,
                             color: colorScheme.secondary,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           Text(
                             entidade.falange,
                             style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
                               color: colorScheme.secondary,
                               fontWeight: FontWeight.w500,
                             ),
@@ -113,10 +115,10 @@ class EntidadeCard extends StatelessWidget {
                       ),
                     if (temLinha)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                         decoration: BoxDecoration(
                           color: colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(5),
                           border: Border.all(
                             color: colorScheme.secondary.withValues(alpha: 0.3),
                           ),
@@ -126,13 +128,14 @@ class EntidadeCard extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.shield_outlined,
-                              size: 12,
+                              size: 11,
                               color: colorScheme.onSecondaryContainer,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
                               'Linha: ${entidade.linhaEntidade}',
                               style: theme.textTheme.labelSmall?.copyWith(
+                                fontSize: 10.5,
                                 color: colorScheme.onSecondaryContainer,
                                 fontWeight: FontWeight.w600,
                               ),

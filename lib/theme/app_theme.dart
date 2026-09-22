@@ -41,18 +41,28 @@ class AppTheme {
         foregroundColor: spiritualGold,
         elevation: 0,
         centerTitle: true,
+        toolbarHeight: 48,
         titleTextStyle: GoogleFonts.cinzel(
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.bold,
           color: brightGold,
         ),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 52,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        indicatorColor: spiritualGold.withValues(alpha: 0.3),
+        iconTheme: WidgetStateProperty.all(const IconThemeData(size: 20)),
+        labelTextStyle: WidgetStateProperty.all(
+          GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: darkBluePrimary),
+        ),
+      ),
       cardTheme: CardThemeData(
         color: gray,
-        elevation: 2,
+        elevation: 1.5,
         shadowColor: const Color(0x260B192C),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: spiritualGold, width: 0.5),
         ),
       ),
@@ -93,6 +103,17 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(
         color: spiritualGold,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: darkBluePrimary,
+        contentTextStyle: GoogleFonts.poppins(
+          color: offWhite,
+          fontSize: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -142,18 +163,28 @@ class AppTheme {
         foregroundColor: brightGold,
         elevation: 0,
         centerTitle: true,
+        toolbarHeight: 48,
         titleTextStyle: GoogleFonts.cinzel(
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.bold,
           color: brightGold,
         ),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        height: 52,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        indicatorColor: spiritualGold.withValues(alpha: 0.3),
+        iconTheme: WidgetStateProperty.all(const IconThemeData(size: 20)),
+        labelTextStyle: WidgetStateProperty.all(
+          GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500, color: offWhite),
+        ),
+      ),
       cardTheme: CardThemeData(
         color: deepBlue,
-        elevation: 4,
+        elevation: 2,
         shadowColor: const Color(0x4D000000),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: spiritualGold, width: 0.5),
         ),
       ),
@@ -194,6 +225,17 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(
         color: brightGold,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF2A2A3D),
+        contentTextStyle: GoogleFonts.poppins(
+          color: offWhite,
+          fontSize: 14,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

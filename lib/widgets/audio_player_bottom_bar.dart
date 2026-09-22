@@ -3,7 +3,12 @@ import 'package:provider/provider.dart';
 import '../providers/audio_player_provider.dart';
 
 class AudioPlayerBottomBar extends StatelessWidget {
-  const AudioPlayerBottomBar({super.key});
+  final bool useBottomInset;
+
+  const AudioPlayerBottomBar({
+    super.key,
+    this.useBottomInset = true,
+  });
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -33,27 +38,30 @@ class AudioPlayerBottomBar extends StatelessWidget {
     final currentMilliseconds = position.inMilliseconds.toDouble().clamp(0.0, maxMilliseconds);
     final progressFraction = (currentMilliseconds / maxMilliseconds).clamp(0.0, 1.0);
 
+    final bottomInset = useBottomInset ? MediaQuery.paddingOf(context).bottom : 0.0;
+
     if (isMinimized) {
       return Container(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 8,
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 6,
               offset: const Offset(0, -2),
             ),
           ],
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
         ),
+        padding: EdgeInsets.only(bottom: bottomInset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: LinearProgressIndicator(
                 value: progressFraction,
-                minHeight: 3,
+                minHeight: 2.5,
                 backgroundColor: colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   errorMessage != null ? Colors.redAccent : colorScheme.secondary,
@@ -63,25 +71,25 @@ class AudioPlayerBottomBar extends StatelessWidget {
             InkWell(
               onTap: () => audioProvider.toggleMinimize(),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 child: Row(
                   children: [
                     CircleAvatar(
                       backgroundColor: errorMessage != null ? Colors.red.shade100 : colorScheme.secondary,
                       foregroundColor: errorMessage != null ? Colors.red.shade900 : colorScheme.onSecondary,
-                      radius: 14,
+                      radius: 12,
                       child: Icon(
                         errorMessage != null ? Icons.error_outline_rounded : Icons.music_note_rounded,
-                        size: 16,
+                        size: 14,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         errorMessage ?? ponto.nomePonto,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontSize: 12,
                           color: errorMessage != null ? Colors.redAccent : null,
                         ),
                         maxLines: 1,
@@ -90,10 +98,10 @@ class AudioPlayerBottomBar extends StatelessWidget {
                     ),
                     IconButton(
                       constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(4),
                       icon: Icon(
                         isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
-                        size: 30,
+                        size: 26,
                         color: colorScheme.primary,
                       ),
                       onPressed: () {
@@ -109,15 +117,15 @@ class AudioPlayerBottomBar extends StatelessWidget {
                     ),
                     IconButton(
                       constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(6),
-                      icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 22),
+                      padding: const EdgeInsets.all(4),
+                      icon: const Icon(Icons.keyboard_arrow_up_rounded, size: 20),
                       onPressed: () => audioProvider.toggleMinimize(),
                       tooltip: 'Expandir player',
                     ),
                     IconButton(
                       constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(6),
-                      icon: const Icon(Icons.close_rounded, size: 20),
+                      padding: const EdgeInsets.all(4),
+                      icon: const Icon(Icons.close_rounded, size: 18),
                       onPressed: () => audioProvider.parar(),
                       tooltip: 'Fechar player',
                     ),
@@ -142,7 +150,7 @@ class AudioPlayerBottomBar extends StatelessWidget {
         ],
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      padding: const EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 8),
+      padding: EdgeInsets.only(top: 8, left: 16, right: 16, bottom: 8 + bottomInset),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -35,16 +35,18 @@ class PontoCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
           child: Row(
             children: [
               IconButton.filledTonal(
                 onPressed: onPlayTap,
                 icon: Icon(
                   isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: 28,
+                  size: 22,
                 ),
                 style: IconButton.styleFrom(
+                  minimumSize: const Size(36, 36),
+                  padding: EdgeInsets.zero,
                   backgroundColor: isPlaying
                       ? colorScheme.secondary
                       : colorScheme.primaryContainer,
@@ -53,30 +55,34 @@ class PontoCard extends StatelessWidget {
                       : colorScheme.onPrimaryContainer,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       ponto.nomePonto,
-                      style: theme.textTheme.titleMedium,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         Icon(
                           Icons.person_outline_rounded,
-                          size: 14,
+                          size: 12,
                           color: colorScheme.secondary,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3),
                         Expanded(
                           child: Text(
                             nomeEntidade,
                             style: theme.textTheme.bodyMedium?.copyWith(
+                              fontSize: 12,
                               color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                             ),
                             maxLines: 1,
@@ -90,7 +96,9 @@ class PontoCard extends StatelessWidget {
               ),
               if (onEdit != null || onDelete != null)
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded),
+                  icon: const Icon(Icons.more_vert_rounded, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onSelected: (value) {
                     if (value == 'edit') {
                       onEdit?.call();
@@ -104,9 +112,9 @@ class PontoCard extends StatelessWidget {
                         value: 'edit',
                         child: Row(
                           children: [
-                            Icon(Icons.edit_outlined, size: 20),
+                            Icon(Icons.edit_outlined, size: 18),
                             SizedBox(width: 8),
-                            Text('Editar'),
+                            Text('Editar', style: TextStyle(fontSize: 13)),
                           ],
                         ),
                       ),
@@ -115,9 +123,9 @@ class PontoCard extends StatelessWidget {
                         value: 'delete',
                         child: Row(
                           children: [
-                            Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
                             SizedBox(width: 8),
-                            Text('Deletar', style: TextStyle(color: Colors.red)),
+                            Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
                           ],
                         ),
                       ),
@@ -126,6 +134,7 @@ class PontoCard extends StatelessWidget {
               if (onEdit == null && onDelete == null)
                 Icon(
                   Icons.chevron_right_rounded,
+                  size: 18,
                   color: colorScheme.outline,
                 ),
             ],

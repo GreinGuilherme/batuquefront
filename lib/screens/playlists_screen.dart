@@ -15,7 +15,10 @@ class PlaylistsScreen extends StatefulWidget {
   State<PlaylistsScreen> createState() => _PlaylistsScreenState();
 }
 
-class _PlaylistsScreenState extends State<PlaylistsScreen> {
+class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _searchController = TextEditingController();
 
   bool _isFilterExpanded = false;
@@ -114,6 +117,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final provider = context.watch<PlaylistsProvider>();
     final entidadesProvider = context.watch<EntidadesProvider>();
     final todasPlaylists = provider.playlists;
@@ -172,18 +176,20 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         children: [
           // Search & Action Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _searchController,
+                    style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Buscar playlist de Gira...',
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintStyle: const TextStyle(fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded),
+                              icon: const Icon(Icons.clear_rounded, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 provider.filtrarPlaylists('');
@@ -191,8 +197,10 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                             )
                           : null,
                       filled: true,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -204,12 +212,13 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 const SizedBox(width: 8),
                 IconButton.filled(
                   onPressed: () => PlaylistFormDialog.show(context),
-                  icon: const Icon(Icons.add_rounded),
+                  icon: const Icon(Icons.add_rounded, size: 20),
                   style: IconButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    minimumSize: const Size(56, 56),
+                    minimumSize: const Size(38, 38),
+                    padding: EdgeInsets.zero,
                   ),
                   tooltip: 'Nova Playlist',
                 ),
@@ -219,23 +228,25 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
 
           // Cascading Filter Trigger & Active Filters summary
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             child: Row(
               children: [
                 OutlinedButton.icon(
                   onPressed: _toggleFilterPanel,
                   icon: Icon(
                     _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                    size: 18,
+                    size: 15,
                   ),
                   label: Text(
                     totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                   ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
                         ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
@@ -246,21 +257,21 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                   const SizedBox(width: 8),
                   InkWell(
                     onTap: _clearFilters,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       child: Row(
                         children: [
                           Icon(
                             Icons.close_rounded,
-                            size: 16,
+                            size: 14,
                             color: theme.colorScheme.error,
                           ),
                           const SizedBox(width: 2),
                           Text(
                             'Limpar filtros',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: theme.colorScheme.error,
                               fontWeight: FontWeight.bold,
                             ),
@@ -278,11 +289,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: theme.colorScheme.outlineVariant,
                 ),
@@ -298,34 +309,39 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         'Filtro por Características',
                         style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
+                        icon: const Icon(Icons.close_rounded, size: 16),
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () => setState(() => _isFilterExpanded = false),
                       ),
                     ],
                   ),
-                  const Divider(height: 12),
+                  const Divider(height: 8),
 
                   // Nível 1: Linha
                   Text(
                     '1. Linha:',
                     style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: theme.colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: todasLinhas.map((linha) {
                       final isSelected = _tempSelectedLinhas.contains(linha);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(linha, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(linha, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -339,25 +355,27 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Nível 2: Falange (Cascata)
                   Text(
                     '2. Falange:',
                     style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: theme.colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: todasFalanges.map((falange) {
                       final isSelected = _tempSelectedFalanges.contains(falange);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(falange, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(falange, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -371,26 +389,28 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Nível 3: Entidades (Cascata)
                   Text(
                     '3. Entidades:',
                     style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: theme.colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: entidadesNasFalanges.map((entidade) {
                       if (entidade.id == null) return const SizedBox.shrink();
                       final isSelected = _tempSelectedEntidades.contains(entidade.id);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -404,7 +424,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -419,19 +439,20 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         },
                         style: TextButton.styleFrom(
                           visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         ),
-                        child: const Text('Resetar seleções'),
+                        child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       FilledButton.icon(
                         onPressed: _applyFilter,
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: const Text('Aplicar Filtro'),
+                        icon: const Icon(Icons.check_rounded, size: 14),
+                        label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
@@ -443,6 +464,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
             crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
             duration: const Duration(milliseconds: 250),
           ),
+
+          const SizedBox(height: 2),
 
           Expanded(
             child: RefreshIndicator(
@@ -460,15 +483,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                                 children: [
                                   Icon(
                                     Icons.queue_music_outlined,
-                                    size: 64,
+                                    size: 48,
                                     color: colorScheme.outline,
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
                                   Text(
                                     totalFiltrosAtivos > 0 || provider.termoBusca.isNotEmpty
                                         ? 'Nenhuma playlist encontrada com os filtros aplicados.'
                                         : 'Nenhuma playlist de Gira criada ainda.',
-                                    style: theme.textTheme.bodyLarge,
+                                    style: theme.textTheme.bodyMedium,
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -478,7 +501,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                         )
                       : ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           itemCount: playlists.length,
                           itemBuilder: (context, index) {
                             final playlist = playlists[index];
@@ -487,25 +510,30 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                                 : '';
 
                             return Card(
-                              margin: const EdgeInsets.only(bottom: 12),
+                              margin: const EdgeInsets.only(bottom: 6),
                               child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                 leading: CircleAvatar(
-                                  radius: 24,
+                                  radius: 18,
                                   backgroundColor: colorScheme.primaryContainer,
                                   foregroundColor: colorScheme.onPrimaryContainer,
-                                  child: const Icon(Icons.queue_music_rounded),
+                                  child: const Icon(Icons.queue_music_rounded, size: 20),
                                 ),
                                 title: Text(
                                   playlist.nomePlaylist,
-                                  style: theme.textTheme.titleMedium,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 subtitle: Text(
                                   '${playlist.pontos.length} ponto(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
-                                  style: theme.textTheme.bodySmall,
+                                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
                                 ),
                                 trailing: PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert_rounded),
+                                  icon: const Icon(Icons.more_vert_rounded, size: 18),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                   onSelected: (value) {
                                     if (value == 'edit') {
                                       PlaylistFormDialog.show(context, playlist: playlist);
@@ -518,9 +546,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                                       value: 'edit',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.edit_outlined, size: 20),
+                                          Icon(Icons.edit_outlined, size: 18),
                                           SizedBox(width: 8),
-                                          Text('Editar Nome'),
+                                          Text('Editar Nome', style: TextStyle(fontSize: 13)),
                                         ],
                                       ),
                                     ),
@@ -528,9 +556,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                                       value: 'delete',
                                       child: Row(
                                         children: [
-                                          Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
                                           SizedBox(width: 8),
-                                          Text('Deletar', style: TextStyle(color: Colors.red)),
+                                          Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
                                         ],
                                       ),
                                     ),

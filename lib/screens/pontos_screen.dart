@@ -16,7 +16,10 @@ class PontosScreen extends StatefulWidget {
   State<PontosScreen> createState() => _PontosScreenState();
 }
 
-class _PontosScreenState extends State<PontosScreen> {
+class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _showScrollToTop = false;
@@ -139,6 +142,7 @@ class _PontosScreenState extends State<PontosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final pontosProvider = context.watch<PontosProvider>();
     final entidadesProvider = context.watch<EntidadesProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
@@ -177,18 +181,20 @@ class _PontosScreenState extends State<PontosScreen> {
         children: [
           // Search & Action Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _searchController,
+                    style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
                       hintText: 'Buscar por nome ou letra do ponto...',
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintStyle: const TextStyle(fontSize: 13),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded),
+                              icon: const Icon(Icons.clear_rounded, size: 18),
                               onPressed: () {
                                 _searchController.clear();
                                 pontosProvider.filtrarPontos(
@@ -200,8 +206,10 @@ class _PontosScreenState extends State<PontosScreen> {
                             )
                           : null,
                       filled: true,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -217,12 +225,13 @@ class _PontosScreenState extends State<PontosScreen> {
                 const SizedBox(width: 8),
                 IconButton.filled(
                   onPressed: () => PontoFormDialog.show(context),
-                  icon: const Icon(Icons.add_rounded),
+                  icon: const Icon(Icons.add_rounded, size: 20),
                   style: IconButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    minimumSize: const Size(56, 56),
+                    minimumSize: const Size(38, 38),
+                    padding: EdgeInsets.zero,
                   ),
                   tooltip: 'Novo Ponto',
                 ),
@@ -232,23 +241,25 @@ class _PontosScreenState extends State<PontosScreen> {
 
           // Cascading Filter Trigger & Active Filters summary
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             child: Row(
               children: [
                 OutlinedButton.icon(
                   onPressed: () => _toggleFilterPanel(pontosProvider),
                   icon: Icon(
                     _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                    size: 18,
+                    size: 15,
                   ),
                   label: Text(
                     totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                   ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
+                    minimumSize: const Size(0, 28),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
                         ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5)
@@ -259,21 +270,21 @@ class _PontosScreenState extends State<PontosScreen> {
                   const SizedBox(width: 8),
                   InkWell(
                     onTap: () => _clearFilters(pontosProvider, entidades),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       child: Row(
                         children: [
                           Icon(
                             Icons.close_rounded,
-                            size: 16,
+                            size: 14,
                             color: Theme.of(context).colorScheme.error,
                           ),
                           const SizedBox(width: 2),
                           Text(
                             'Limpar filtros',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: Theme.of(context).colorScheme.error,
                               fontWeight: FontWeight.bold,
                             ),
@@ -291,11 +302,11 @@ class _PontosScreenState extends State<PontosScreen> {
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              padding: const EdgeInsets.all(14),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: Theme.of(context).colorScheme.outlineVariant,
                 ),
@@ -311,34 +322,39 @@ class _PontosScreenState extends State<PontosScreen> {
                         'Filtro por Características',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
+                        icon: const Icon(Icons.close_rounded, size: 16),
                         visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () => setState(() => _isFilterExpanded = false),
                       ),
                     ],
                   ),
-                  const Divider(height: 12),
+                  const Divider(height: 8),
 
                   // Nível 1: Linha
                   Text(
                     '1. Linha:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: todasLinhas.map((linha) {
                       final isSelected = _tempSelectedLinhas.contains(linha);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(linha, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(linha, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -352,25 +368,27 @@ class _PontosScreenState extends State<PontosScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Nível 2: Falange (Cascata)
                   Text(
                     '2. Falange:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: todasFalanges.map((falange) {
                       final isSelected = _tempSelectedFalanges.contains(falange);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(falange, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(falange, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -384,26 +402,28 @@ class _PontosScreenState extends State<PontosScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
 
                   // Nível 3: Entidade (Cascata)
                   Text(
                     '3. Entidades:',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: 11,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: entidadesNasFalanges.map((entidade) {
                       if (entidade.id == null) return const SizedBox.shrink();
                       final isSelected = _tempSelectedEntidades.contains(entidade.id);
                       return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 12)),
+                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
                           setState(() {
@@ -417,7 +437,7 @@ class _PontosScreenState extends State<PontosScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
 
                   // Botão de Aplicação simples e sutil
                   Row(
@@ -433,19 +453,20 @@ class _PontosScreenState extends State<PontosScreen> {
                         },
                         style: TextButton.styleFrom(
                           visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         ),
-                        child: const Text('Resetar seleções'),
+                        child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       FilledButton.icon(
                         onPressed: () => _applyFilter(pontosProvider, entidades),
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: const Text('Aplicar Filtro'),
+                        icon: const Icon(Icons.check_rounded, size: 14),
+                        label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
@@ -458,7 +479,7 @@ class _PontosScreenState extends State<PontosScreen> {
             duration: const Duration(milliseconds: 250),
           ),
 
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
 
           // List of Pontos
           Expanded(
@@ -482,15 +503,15 @@ class _PontosScreenState extends State<PontosScreen> {
                                 children: [
                                   Icon(
                                     Icons.music_off_outlined,
-                                    size: 64,
+                                    size: 48,
                                     color: Theme.of(context).colorScheme.outline,
                                   ),
-                                  const SizedBox(height: 16),
+                                  const SizedBox(height: 12),
                                   Text(
                                     pontosProvider.temFiltrosAtivos
                                         ? 'Nenhum ponto encontrado com os filtros aplicados.'
                                         : 'Nenhum ponto cantado cadastrado ainda.',
-                                    style: Theme.of(context).textTheme.bodyLarge,
+                                    style: Theme.of(context).textTheme.bodyMedium,
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -501,7 +522,7 @@ class _PontosScreenState extends State<PontosScreen> {
                       : ListView.builder(
                           controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           itemCount: pontos.length,
                           itemBuilder: (context, index) {
                             final ponto = pontos[index];
@@ -518,7 +539,7 @@ class _PontosScreenState extends State<PontosScreen> {
                             final isPlaying = audioProvider.currentPonto?.id == ponto.id && audioProvider.isPlaying;
 
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.only(bottom: 6),
                               child: PontoCard(
                                 ponto: ponto,
                                 entidade: entidadeVinculada,
