@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart' hide Playlist;
 import '../models/ponto_cantado.dart';
 import '../models/ponto_item.dart';
 import '../models/playlist.dart';
@@ -18,6 +19,7 @@ class AudioPlayerProvider extends ChangeNotifier {
   PontoItem? _currentItem;
   Playlist? _currentPlaylist;
   int _currentIndex = -1;
+  bool _isMinimized = false;
 
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
@@ -59,6 +61,7 @@ class AudioPlayerProvider extends ChangeNotifier {
   PontoItem? get currentItem => _currentItem;
   Playlist? get currentPlaylist => _currentPlaylist;
   int get currentIndex => _currentIndex;
+  bool get isMinimized => _isMinimized;
 
   Duration get position => _position;
   Duration get duration => _duration;
@@ -81,9 +84,24 @@ class AudioPlayerProvider extends ChangeNotifier {
       _currentPlaylist!.pontos.isNotEmpty &&
       _currentIndex > 0;
 
+  void toggleMinimize() {
+    _isMinimized = !_isMinimized;
+    notifyListeners();
+  }
+
+  void setMinimized(bool value) {
+    _isMinimized = value;
+    notifyListeners();
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  bool _isYouTubeUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('youtube.com/') || lower.contains('youtu.be/');
   }
 
   /// Toca um ponto isolado ou com contexto de playlist/índice
@@ -108,15 +126,36 @@ class AudioPlayerProvider extends ChangeNotifier {
 
       _position = Duration.zero;
       _duration = Duration.zero;
+      _isMinimized = false;
+      _playerState = PlayerState.stopped;
       notifyListeners();
 
       await _audioPlayer.stop();
-      if (ponto.audioUrl.isNotEmpty) {
-        await _audioPlayer.play(UrlSource(ponto.audioUrl));
-      } else {
+
+      final trimmedUrl = ponto.audioUrl.trim();
+      if (trimmedUrl.isEmpty) {
         _errorMessage = 'URL de áudio inválida ou vazia.';
         notifyListeners();
+        return;
       }
+
+      String playUrl = trimmedUrl;
+      if (_isYouTubeUrl(trimmedUrl)) {
+        try {
+          final yt = YoutubeExplode();
+          final manifest = await yt.videos.streamsClient.getManifest(trimmedUrl);
+          yt.close();
+          final audioStreamInfo = manifest.audioOnly.withHighestBitrate();
+          playUrl = audioStreamInfo.url.toString();
+        } catch (e) {
+          _errorMessage = 'Não foi possível carregar o áudio do YouTube. Verifique o link ou a conexão.';
+          _playerState = PlayerState.stopped;
+          notifyListeners();
+          return;
+        }
+      }
+
+      await _audioPlayer.play(UrlSource(playUrl));
     } catch (e) {
       _errorMessage = 'Erro ao reproduzir áudio: $e';
       _playerState = PlayerState.stopped;
@@ -191,11 +230,16 @@ class AudioPlayerProvider extends ChangeNotifier {
   }
 
   Future<void> parar() async {
+    _position = Duration.zero;
+    _playerState = PlayerState.stopped;
+    _currentPonto = null;
+    _currentItem = null;
+    _currentPlaylist = null;
+    _currentIndex = -1;
+    _isMinimized = false;
+    notifyListeners();
     try {
       await _audioPlayer.stop();
-      _position = Duration.zero;
-      _playerState = PlayerState.stopped;
-      notifyListeners();
     } catch (e) {
       _errorMessage = 'Erro ao parar: $e';
       notifyListeners();
@@ -212,10 +256,15 @@ class AudioPlayerProvider extends ChangeNotifier {
   }
 
   void _onTrackCompleted() {
+    if (_errorMessage != null || (_position == Duration.zero && _duration == Duration.zero)) {
+      _playerState = PlayerState.stopped;
+      notifyListeners();
+      return;
+    }
+
     if (temProxima) {
       tocarProxima();
     } else {
-      _position = Duration.zero;
       _playerState = PlayerState.stopped;
       notifyListeners();
     }

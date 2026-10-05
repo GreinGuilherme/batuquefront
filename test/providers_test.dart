@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
@@ -10,6 +11,7 @@ import 'package:batuque/providers/entidades_provider.dart';
 import 'package:batuque/providers/pontos_provider.dart';
 import 'package:batuque/providers/playlists_provider.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
+import 'package:batuque/services/api_config.dart';
 
 class FakeAudioPlayer extends AudioPlayer {
   final _stateController = StreamController<PlayerState>.broadcast();
@@ -71,6 +73,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
+
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('xyz.luan/audioplayers.global'),
       (MethodCall methodCall) async {
@@ -230,7 +234,7 @@ void main() {
       expect(provider.playlists.first.pontos.length, equals(countAntes + 1));
       expect(provider.playlists.first.pontos.last.ordem, equals(countAntes + 1));
 
-      provider.removerPontoDaPlaylist(playlistId, provider.playlists.first.pontos.length - 1);
+      provider.removerPontoCantadoDaPlaylist(playlistId, 99);
       expect(provider.playlists.first.pontos.length, equals(countAntes));
     });
 
@@ -302,6 +306,30 @@ void main() {
       await provider.tocarAnterior();
       expect(provider.currentPonto?.id, equals(1));
       expect(provider.currentIndex, equals(0));
+    });
+
+    test('parar zera currentPonto e fecha o player', () async {
+      final ponto = PontoCantado(id: 1, nomePonto: 'Ponto Teste', pontoLetra: 'L1', audioUrl: 'http://a.com/1.mp3');
+      await provider.tocarPonto(ponto);
+      expect(provider.currentPonto, isNotNull);
+
+      await provider.parar();
+      expect(provider.currentPonto, isNull);
+      expect(provider.currentPlaylist, isNull);
+      expect(provider.isStopped, isTrue);
+      expect(provider.isMinimized, isFalse);
+    });
+
+    test('toggleMinimize altera o estado de minimização', () async {
+      final ponto = PontoCantado(id: 1, nomePonto: 'Ponto Teste', pontoLetra: 'L1', audioUrl: 'http://a.com/1.mp3');
+      await provider.tocarPonto(ponto);
+      expect(provider.isMinimized, isFalse);
+
+      provider.toggleMinimize();
+      expect(provider.isMinimized, isTrue);
+
+      provider.toggleMinimize();
+      expect(provider.isMinimized, isFalse);
     });
   });
 }

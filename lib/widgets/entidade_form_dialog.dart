@@ -8,11 +8,38 @@ class EntidadeFormDialog extends StatefulWidget {
 
   const EntidadeFormDialog({super.key, this.entidade});
 
-  static Future<void> show(BuildContext context, {Entidade? entidade}) {
-    return showDialog(
+  static Future<void> show(BuildContext context, {Entidade? entidade}) async {
+    final bool? sucesso = await showDialog<bool>(
       context: context,
-      builder: (context) => EntidadeFormDialog(entidade: entidade),
+      builder: (dialogContext) => EntidadeFormDialog(entidade: entidade),
     );
+
+    if (sucesso == true && context.mounted) {
+      final isEditing = entidade != null;
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.green),
+              SizedBox(width: 8),
+              Text('Sucesso'),
+            ],
+          ),
+          content: Text(
+            isEditing
+                ? 'Entidade atualizada com sucesso!'
+                : 'Entidade cadastrada com sucesso!',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -73,19 +100,28 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
     });
 
     if (sucesso) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditing ? 'Entidade atualizada com sucesso!' : 'Entidade cadastrada com sucesso!',
-          ),
-        ),
-      );
+      Navigator.of(context).pop(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.errorMessage ?? 'Erro ao salvar entidade'),
-          backgroundColor: Colors.red,
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Erro'),
+            ],
+          ),
+          content: Text(
+            provider.errorMessage ??
+                (isEditing ? 'Erro ao atualizar entidade' : 'Erro ao cadastrar entidade'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
     }
@@ -153,7 +189,7 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
           child: const Text('Cancelar'),
         ),
         ElevatedButton(

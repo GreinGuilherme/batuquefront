@@ -8,11 +8,38 @@ class PlaylistFormDialog extends StatefulWidget {
 
   const PlaylistFormDialog({super.key, this.playlist});
 
-  static Future<void> show(BuildContext context, {Playlist? playlist}) {
-    return showDialog(
+  static Future<void> show(BuildContext context, {Playlist? playlist}) async {
+    final bool? sucesso = await showDialog<bool>(
       context: context,
-      builder: (context) => PlaylistFormDialog(playlist: playlist),
+      builder: (dialogContext) => PlaylistFormDialog(playlist: playlist),
     );
+
+    if (sucesso == true && context.mounted) {
+      final isEditing = playlist != null;
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Colors.green),
+              SizedBox(width: 8),
+              Text('Sucesso'),
+            ],
+          ),
+          content: Text(
+            isEditing
+                ? 'Playlist atualizada com sucesso!'
+                : 'Playlist criada com sucesso!',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -67,19 +94,28 @@ class _PlaylistFormDialogState extends State<PlaylistFormDialog> {
     });
 
     if (sucesso) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditing ? 'Playlist atualizada com sucesso!' : 'Playlist criada com sucesso!',
-          ),
-        ),
-      );
+      Navigator.of(context).pop(true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(provider.errorMessage ?? 'Erro ao salvar playlist'),
-          backgroundColor: Colors.red,
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Erro'),
+            ],
+          ),
+          content: Text(
+            provider.errorMessage ??
+                (isEditing ? 'Erro ao atualizar playlist' : 'Erro ao criar playlist'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       );
     }
@@ -117,7 +153,7 @@ class _PlaylistFormDialogState extends State<PlaylistFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
           child: const Text('Cancelar'),
         ),
         ElevatedButton(

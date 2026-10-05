@@ -91,13 +91,13 @@ class PlaylistsProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> deletarPlaylist(int id) async {
+  Future<bool> deletarPlaylist(int id, {String? nomePlaylist}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      await _service.deletarPlaylist(id);
+      await _service.deletarPlaylist(id, nomePlaylist: nomePlaylist);
       _playlists.removeWhere((p) => p.id == id);
       _isLoading = false;
       notifyListeners();
@@ -167,6 +167,26 @@ class PlaylistsProvider extends ChangeNotifier {
     if (pontoIndex < 0 || pontoIndex >= pontos.length) return;
 
     pontos.removeAt(pontoIndex);
+
+    // Reatualiza ordens
+    final pontosAtualizados = List<PontoItem>.generate(
+      pontos.length,
+      (i) => pontos[i].copyWith(ordem: i + 1),
+    );
+
+    _playlists[index] = playlist.copyWith(pontos: pontosAtualizados);
+    notifyListeners();
+  }
+
+  /// Remove um PontoCantado por ID da playlist especificada
+  void removerPontoCantadoDaPlaylist(int playlistId, int pontoId) {
+    final index = _playlists.indexWhere((p) => p.id == playlistId);
+    if (index == -1) return;
+
+    final playlist = _playlists[index];
+    final pontos = List<PontoItem>.from(playlist.pontos);
+
+    pontos.removeWhere((item) => item.ponto.id == pontoId);
 
     // Reatualiza ordens
     final pontosAtualizados = List<PontoItem>.generate(

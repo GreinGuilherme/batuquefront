@@ -20,61 +20,38 @@ class EntidadeCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final temFalange = entidade.falange.trim().isNotEmpty;
+    final temLinha = entidade.linhaEntidade.trim().isNotEmpty;
+
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: colorScheme.primaryContainer,
-                    foregroundColor: colorScheme.onPrimaryContainer,
-                    child: const Icon(Icons.auto_awesome_rounded),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entidade.nomeEntidade,
-                          style: theme.textTheme.titleMedium,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.grid_view_rounded,
-                              size: 14,
-                              color: colorScheme.secondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                entidade.falange,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: Text(
+                      entidade.nomeEntidade,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (onEdit != null || onDelete != null)
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert_rounded),
+                      icon: const Icon(Icons.more_vert_rounded, size: 18),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       onSelected: (value) {
                         if (value == 'edit') {
                           onEdit?.call();
@@ -88,9 +65,9 @@ class EntidadeCard extends StatelessWidget {
                             value: 'edit',
                             child: Row(
                               children: [
-                                Icon(Icons.edit_outlined, size: 20),
+                                Icon(Icons.edit_outlined, size: 18),
                                 SizedBox(width: 8),
-                                Text('Editar'),
+                                Text('Editar', style: TextStyle(fontSize: 13)),
                               ],
                             ),
                           ),
@@ -99,9 +76,9 @@ class EntidadeCard extends StatelessWidget {
                             value: 'delete',
                             child: Row(
                               children: [
-                                Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                Icon(Icons.delete_outline, size: 18, color: Colors.red),
                                 SizedBox(width: 8),
-                                Text('Deletar', style: TextStyle(color: Colors.red)),
+                                Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
                               ],
                             ),
                           ),
@@ -109,38 +86,66 @@ class EntidadeCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: colorScheme.secondary.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              if (temFalange || temLinha) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 14,
-                      color: colorScheme.onSecondaryContainer,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Linha: ${entidade.linhaEntidade}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSecondaryContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    if (temFalange)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.grid_view_rounded,
+                            size: 11,
+                            color: colorScheme.secondary,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            entidade.falange,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: colorScheme.secondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                    if (temLinha)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: colorScheme.secondary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.shield_outlined,
+                              size: 11,
+                              color: colorScheme.onSecondaryContainer,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              'Linha: ${entidade.linhaEntidade}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontSize: 10.5,
+                                color: colorScheme.onSecondaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-              ),
+              ],
             ],
           ),
         ),

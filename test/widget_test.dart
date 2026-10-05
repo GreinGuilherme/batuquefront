@@ -5,30 +5,43 @@ import 'package:batuque/main.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
+import 'package:batuque/providers/entidades_provider.dart';
+import 'package:batuque/providers/pontos_provider.dart';
+import 'package:batuque/screens/ponto_detail_screen.dart';
 import 'package:batuque/widgets/entidade_card.dart';
 import 'package:batuque/widgets/ponto_card.dart';
 import 'package:batuque/widgets/audio_player_bottom_bar.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:batuque/services/api_config.dart';
+
 void main() {
+  setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
+
+  });
+
   testWidgets('BatuqueApp renders home page and tabs correctly', (WidgetTester tester) async {
     await tester.pumpWidget(const BatuqueApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify AppBar title
     expect(find.text('Batuque'), findsOneWidget);
 
     // Verify NavigationBar destinations
     expect(find.text('Entidades'), findsOneWidget);
-    expect(find.text('Pontos Cantados'), findsOneWidget);
+    expect(find.text('Pontos'), findsOneWidget);
     expect(find.text('Playlists'), findsOneWidget);
 
-    // Tap on 'Pontos Cantados' tab
-    await tester.tap(find.text('Pontos Cantados'));
-    await tester.pumpAndSettle();
+    // Tap on 'Pontos' tab
+    await tester.tap(find.text('Pontos'));
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Tap on 'Playlists' tab
     await tester.tap(find.text('Playlists'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
   });
 
   testWidgets('EntidadeCard renders entity details', (WidgetTester tester) async {
@@ -83,6 +96,32 @@ void main() {
     expect(playTapped, isTrue);
   });
 
+  testWidgets('PontoDetailScreen renders ponto details and screen awake indicator', (WidgetTester tester) async {
+    final ponto = PontoCantado(
+      id: 1,
+      nomePonto: 'Ponto de Caboclo',
+      pontoLetra: 'Okê Caboclo...',
+      audioUrl: 'https://example.com/caboclo.mp3',
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => EntidadesProvider()),
+          ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
+          ChangeNotifierProvider(create: (_) => PontosProvider()),
+        ],
+        child: MaterialApp(
+          home: PontoDetailScreen(ponto: ponto),
+        ),
+      ),
+    );
+
+    expect(find.text('Ponto de Caboclo'), findsNWidgets(2)); // AppBar and Header Card
+    expect(find.text('Okê Caboclo...'), findsOneWidget);
+    expect(find.text('Tela mantida acesa'), findsOneWidget);
+  });
+
   testWidgets('AudioPlayerBottomBar renders playing ponto details', (WidgetTester tester) async {
     final audioProvider = AudioPlayerProvider();
     final ponto = PontoCantado(
@@ -113,5 +152,21 @@ void main() {
     await tester.pump();
 
     expect(find.text('Ponto Teste'), findsOneWidget);
+
+    // Minimize player
+    await tester.tap(find.byTooltip('Minimizar player'));
+    await tester.pump();
+    expect(audioProvider.isMinimized, isTrue);
+    expect(find.byTooltip('Expandir player'), findsOneWidget);
+
+    // Expand player
+    await tester.tap(find.byTooltip('Expandir player'));
+    await tester.pump();
+    expect(audioProvider.isMinimized, isFalse);
+
+    // Close player
+    await tester.tap(find.byTooltip('Fechar player'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ponto Teste'), findsNothing);
   });
 }
