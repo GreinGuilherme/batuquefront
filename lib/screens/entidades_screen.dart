@@ -99,28 +99,35 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.of(dialogContext).pop();
-              if (entidade.id != null) {
-                final provider = context.read<EntidadesProvider>();
-                final messenger = ScaffoldMessenger.of(context);
-                final ok = await provider.deletarEntidade(
-                  entidade.id!,
-                  nomeEntidade: entidade.nomeEntidade,
+              final provider = context.read<EntidadesProvider>();
+              final messenger = ScaffoldMessenger.of(context);
+              if (entidade.id == null) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Não foi possível excluir: ID da entidade está ausente.'),
+                    backgroundColor: Colors.orange,
+                  ),
                 );
-                if (ok) {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Entidade "${entidade.nomeEntidade}" removida com sucesso!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } else {
-                  messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(provider.errorMessage ?? 'Erro ao deletar entidade "${entidade.nomeEntidade}".'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
+                return;
+              }
+              final ok = await provider.deletarEntidade(
+                entidade.id!,
+                nomeEntidade: entidade.nomeEntidade,
+              );
+              if (ok) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text('Entidade "${entidade.nomeEntidade}" removida com sucesso!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(provider.errorMessage ?? 'Erro ao deletar entidade "${entidade.nomeEntidade}".'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
             },
             child: const Text('Deletar', style: TextStyle(color: Colors.white)),
@@ -428,7 +435,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
 
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => provider.carregarEntidades(),
+              onRefresh: () => provider.carregarEntidades(forceRefresh: true),
               child: provider.isLoading && entidades.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : entidades.isEmpty

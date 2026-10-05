@@ -488,7 +488,7 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
               onRefresh: () async {
                 await Future.wait([
                   pontosProvider.carregarPontos(listaEntidades: entidades),
-                  entidadesProvider.carregarEntidades(),
+                  entidadesProvider.carregarEntidades(forceRefresh: true),
                 ]);
               },
               child: pontosProvider.isLoading && pontos.isEmpty

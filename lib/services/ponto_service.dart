@@ -12,16 +12,38 @@ class PontoService {
       : _client = client ?? http.Client(),
         _authService = authService ?? AuthService();
 
+  String? _extrairMensagemErro(http.Response response) {
+    try {
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        final decoded = jsonDecode(decodedBody);
+        if (decoded is Map<String, dynamic>) {
+          return decoded['message'] ?? decoded['error'] ?? decoded['mensagem'] ?? decoded['erro'] ?? decoded['detail'];
+        }
+        return decodedBody;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<List<PontoCantado>> buscarPontos() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/buscar');
     final headers = await _authService.getAuthHeaders();
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
     if (response.statusCode == 200) {
-      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isEmpty) return [];
+      final dynamic json = jsonDecode(decodedBody);
+      if (json is List) {
+        return json.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (json is Map<String, dynamic> && json['content'] is List) {
+        return (json['content'] as List).map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao buscar pontos (status: ${response.statusCode})');
   }
 
   Future<List<PontoCantado>> filtrarPontos({String? termo, int? entidadeId}) async {
@@ -39,10 +61,18 @@ class PontoService {
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
     if (response.statusCode == 200) {
-      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isEmpty) return [];
+      final dynamic json = jsonDecode(decodedBody);
+      if (json is List) {
+        return json.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (json is Map<String, dynamic> && json['content'] is List) {
+        return (json['content'] as List).map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao filtrar pontos (status: ${response.statusCode})');
   }
 
   Future<PontoCantado> cadastrarPonto(PontoCantado ponto) async {
@@ -56,7 +86,7 @@ class PontoService {
           body: jsonEncode(ponto.toJson()),
         )
         .timeout(ApiConfig.timeout);
-    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
       PontoCantado resultado = ponto;
       final decodedBody = utf8.decode(response.bodyBytes).trim();
       if (decodedBody.isNotEmpty) {
@@ -76,7 +106,8 @@ class PontoService {
       }
       return resultado;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao cadastrar ponto (status: ${response.statusCode})');
   }
 
   Future<PontoCantado> atualizarPonto(int id, PontoCantado ponto) async {
@@ -102,7 +133,7 @@ class PontoService {
           .timeout(ApiConfig.timeout);
     }
 
-    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
       PontoCantado resultado = ponto.copyWith(id: id);
       final decodedBody = utf8.decode(response.bodyBytes).trim();
       if (decodedBody.isNotEmpty) {
@@ -122,10 +153,13 @@ class PontoService {
       }
       return resultado;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao atualizar ponto (status: ${response.statusCode})');
   }
 
   Future<void> deletarPonto(int id, {String? nomePonto, String? nomeEntidade}) async {
+    final headers = await _authService.getAuthHeaders();
+
     final queryParams = <String, String>{
       'id': id.toString(),
     };
@@ -136,14 +170,29 @@ class PontoService {
       queryParams['nomeEntidade'] = nomeEntidade;
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/deletar')
+    Uri uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/deletar')
         .replace(queryParameters: queryParams);
-    final headers = await _authService.getAuthHeaders();
+    var response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
 
-    final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
-    if (response.statusCode == 200 || response.statusCode == 204) {
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/deletar/$id');
+      response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    }
+
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/$id');
+      response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 204 || response.statusCode == 202) {
       return;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw Exception('Acesso negado (${response.statusCode}): Você precisa estar autenticado para deletar pontos.');
+    }
+
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao deletar ponto (status: ${response.statusCode})');
   }
 }

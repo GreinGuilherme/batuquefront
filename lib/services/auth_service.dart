@@ -18,14 +18,13 @@ class AuthService {
   static const Map<String, String> _unauthenticatedHeaders = {
     'Content-Type': 'application/json; charset=UTF-8',
     'Accept': 'application/json, text/plain',
+    'x-app-batuque': 'GiraSegura2026',
+    'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
   };
 
-  /// Retorna a URI usando o protocolo HTTP configurado em ApiConfig
+  /// Retorna a URI usando a URL base configurada em ApiConfig
   Uri _getUri(String endpoint) {
-    String base = ApiConfig.baseUrl;
-    if (base.startsWith('https://')) {
-      base = base.replaceFirst('https://', 'http://');
-    }
+    final base = ApiConfig.baseUrl;
     return Uri.parse('$base$endpoint');
   }
 
@@ -73,12 +72,13 @@ class AuthService {
         if (responseBody.startsWith('{')) {
           final Map<String, dynamic> data = jsonDecode(responseBody);
           token = data['token'] ?? data['jwt'] ?? data['accessToken'] ?? '';
-          rawNome = data['nome'] ?? data['name'] ?? data['username'] ?? '';
+          rawNome = _extrairNomeDoMap(data);
+          final dataRole = _extrairRole(data);
+          if (dataRole.isNotEmpty) {
+            userRole = dataRole;
+          }
           if (data.containsKey('email') && data['email'].toString().contains('@')) {
             userEmail = data['email'].toString();
-          }
-          if (data.containsKey('role')) {
-            userRole = data['role'].toString();
           }
         } else {
           token = responseBody.replaceAll('"', '');
@@ -92,21 +92,39 @@ class AuthService {
         final String subject = payload['sub']?.toString() ?? userEmail;
 
         if (rawNome.isEmpty) {
-          rawNome = payload['nome']?.toString() ??
-              payload['name']?.toString() ??
-              payload['username']?.toString() ??
-              '';
+          rawNome = _extrairNomeDoMap(payload);
         }
 
-        if (payload.containsKey('role')) {
-          userRole = payload['role'].toString();
+        final jwtRole = _extrairRole(payload);
+        if (jwtRole.isNotEmpty) {
+          userRole = jwtRole;
         }
 
-        // Sanitiza o nome do usuário para nunca exibir a classe/entidade Java
-        final String nomeSanitizado = _sanitizarNome(rawNome, subject, userEmail);
+        final jwtEmail = payload['email']?.toString() ?? payload['sub']?.toString();
+        if (jwtEmail != null && jwtEmail.contains('@')) {
+          userEmail = jwtEmail;
+        }
+
+        // Tenta buscar o nome salvo anteriormente nas SharedPreferences se o servidor não retornou nada
+        final prefs = await SharedPreferences.getInstance();
+        final savedNome = prefs.getString(_userNameKey);
+
+        // Sanitiza o nome do usuário priorizando o nome retornado pelo servidor / JWT
+        final String nomeSanitizado = _sanitizarNome(rawNome, subject, userEmail, savedNome: savedNome);
+
+        // Captura o cookie retornado pelo servidor no header Set-Cookie, se existir
+        String cookieValue = 'jwt=$token';
+        final setCookieHeader = response.headers['set-cookie'];
+        if (setCookieHeader != null && setCookieHeader.trim().isNotEmpty) {
+          final rawCookie = setCookieHeader.split(';').first.trim();
+          if (rawCookie.isNotEmpty) {
+            cookieValue = rawCookie;
+          }
+        }
 
         await _salvarSessao(
           token: token,
+          cookie: cookieValue,
           email: userEmail,
           nome: nomeSanitizado,
           role: userRole,
@@ -174,7 +192,11 @@ class AuthService {
             .timeout(ApiConfig.timeout);
       }
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
+        // Armazena o nome cadastrado no SharedPreferences para preservá-lo após o login
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_userNameKey, nome.trim());
+        await prefs.setString(_userEmailKey, email.trim());
         return true;
       } else {
         final errorMsg = _extrairMensagemErro(response);
@@ -185,19 +207,97 @@ class AuthService {
     }
   }
 
-  /// Sanitiza o nome de exibição descartando nomes de pacotes/entidades do Java
-  static String _sanitizarNome(String rawNome, String subject, String email) {
-    final candidatos = [rawNome, subject];
+  /// Extrai a Role do usuário a partir do mapa JSON da resposta de login ou do JWT
+  static String _extrairRole(Map<String, dynamic> map) {
+    // 1. Tenta chaves diretas no mapa principal
+    for (final key in ['role', 'userRole', 'perfil', 'user_role', 'authority']) {
+      if (map[key] != null && map[key].toString().trim().isNotEmpty) {
+        final r = map[key].toString().trim().replaceAll('ROLE_', '');
+        if (r.isNotEmpty) return r;
+      }
+    }
+
+    // 2. Tenta arrays (roles, authorities, etc.)
+    for (final key in ['roles', 'authorities', 'groups']) {
+      if (map[key] is List && (map[key] as List).isNotEmpty) {
+        final first = (map[key] as List).first;
+        if (first is Map && first['authority'] != null) {
+          final r = first['authority'].toString().trim().replaceAll('ROLE_', '');
+          if (r.isNotEmpty) return r;
+        } else if (first != null) {
+          final r = first.toString().trim().replaceAll('ROLE_', '');
+          if (r.isNotEmpty) return r;
+        }
+      }
+    }
+
+    // 3. Tenta objetos aninhados (usuario, user, etc.)
+    for (final key in ['usuario', 'user', 'dadosUsuario', 'account']) {
+      if (map[key] is Map<String, dynamic>) {
+        final subRole = _extrairRole(map[key] as Map<String, dynamic>);
+        if (subRole.isNotEmpty) return subRole;
+      }
+    }
+
+    return '';
+  }
+
+  /// Extrai o nome do usuário a partir do mapa JSON da resposta de login ou do JWT
+  static String _extrairNomeDoMap(Map<String, dynamic> data) {
+    // 1. Tenta chaves diretas no objeto principal
+    String? n = data['nome']?.toString() ??
+        data['nomeUsuario']?.toString() ??
+        data['nomeCompleto']?.toString() ??
+        data['name']?.toString() ??
+        data['displayName']?.toString() ??
+        data['fullName']?.toString();
+
+    if (n != null && n.trim().isNotEmpty && !n.contains('@') && !_isClasseJava(n)) {
+      return n.trim();
+    }
+
+    // 2. Tenta objetos aninhados (usuario, user, etc.)
+    for (final subKey in ['usuario', 'user', 'dadosUsuario', 'account']) {
+      if (data[subKey] is Map<String, dynamic>) {
+        final subMap = data[subKey] as Map<String, dynamic>;
+        final subName = subMap['nome']?.toString() ??
+            subMap['nomeUsuario']?.toString() ??
+            subMap['nomeCompleto']?.toString() ??
+            subMap['name']?.toString() ??
+            subMap['displayName']?.toString() ??
+            subMap['fullName']?.toString();
+        if (subName != null && subName.trim().isNotEmpty && !subName.contains('@') && !_isClasseJava(subName)) {
+          return subName.trim();
+        }
+      }
+    }
+
+    // 3. Tenta campo 'username' APENAS se não for email
+    final username = data['username']?.toString();
+    if (username != null && username.trim().isNotEmpty && !username.contains('@') && !_isClasseJava(username)) {
+      return username.trim();
+    }
+
+    return '';
+  }
+
+  static bool _isClasseJava(String str) {
+    final val = str.trim();
+    return val.startsWith('com.') ||
+        val.contains('.entity.') ||
+        val.contains('Entity') ||
+        val.contains('UsuarioJpa') ||
+        val.contains('adpater');
+  }
+
+  /// Sanitiza o nome de exibição descartando nomes de pacotes/entidades do Java ou e-mails
+  static String _sanitizarNome(String rawNome, String subject, String email, {String? savedNome}) {
+    final candidatos = [rawNome, savedNome ?? '', subject];
 
     for (final c in candidatos) {
       final val = c.trim();
       if (val.isNotEmpty) {
-        // Rejeita se for classe/pacote Java (ex: com.api.batuque...UsuarioEntity) ou email
-        final eClasseJava = val.startsWith('com.') ||
-            val.contains('.entity.') ||
-            val.contains('Entity') ||
-            val.contains('UsuarioJpa') ||
-            val.contains('adpater');
+        final eClasseJava = _isClasseJava(val);
         final eEmail = val.contains('@');
 
         if (!eClasseJava && !eEmail) {
@@ -220,13 +320,14 @@ class AuthService {
 
   Future<void> _salvarSessao({
     required String token,
+    String? cookie,
     required String email,
     required String nome,
     required String role,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
-    await prefs.setString(_cookieKey, 'jwt=$token');
+    await prefs.setString(_cookieKey, cookie ?? 'jwt=$token');
     await prefs.setString(_userEmailKey, email);
     await prefs.setString(_userNameKey, nome);
     await prefs.setString(_userRoleKey, role);
@@ -239,15 +340,37 @@ class AuthService {
 
   Future<Map<String, String?>> getSavedUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
     final savedEmail = prefs.getString(_userEmailKey) ?? '';
     final savedNome = prefs.getString(_userNameKey) ?? '';
+    final savedRole = prefs.getString(_userRoleKey) ?? 'USUARIO';
+
+    String userEmail = savedEmail;
+    String rawNome = savedNome;
+    String userRole = savedRole;
+
+    if (token != null && token.isNotEmpty) {
+      final payload = parseJwt(token);
+      if (payload.isNotEmpty) {
+        final jwtRole = _extrairRole(payload);
+        if (jwtRole.isNotEmpty) userRole = jwtRole;
+
+        final jwtEmail = payload['email']?.toString() ?? payload['sub']?.toString();
+        if (jwtEmail != null && jwtEmail.contains('@')) userEmail = jwtEmail;
+
+        final jwtNome = _extrairNomeDoMap(payload);
+        if (jwtNome.isNotEmpty) rawNome = jwtNome;
+      }
+    }
+
+    final nomeSanitizado = _sanitizarNome(rawNome, '', userEmail, savedNome: savedNome);
 
     return {
-      'token': prefs.getString(_tokenKey),
+      'token': token,
       'cookie': prefs.getString(_cookieKey),
-      'email': savedEmail,
-      'nome': _sanitizarNome(savedNome, '', savedEmail),
-      'role': prefs.getString(_userRoleKey),
+      'email': userEmail,
+      'nome': nomeSanitizado,
+      'role': userRole,
     };
   }
 
@@ -268,13 +391,22 @@ class AuthService {
 
     final headers = <String, String>{
       'Content-Type': 'application/json; charset=UTF-8',
+      'Accept': 'application/json, text/plain',
+      'x-app-batuque': 'GiraSegura2026',
+      'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
     };
 
     if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
+      final bearerToken = token.startsWith('Bearer ') ? token : 'Bearer $token';
+      headers['Authorization'] = bearerToken;
+      headers['authorization'] = bearerToken;
+      headers['token'] = token;
+      headers['x-access-token'] = token;
     }
     if (cookie != null && cookie.isNotEmpty) {
       headers['Cookie'] = cookie;
+    } else if (token != null && token.isNotEmpty) {
+      headers['Cookie'] = 'jwt=$token';
     }
 
     return headers;

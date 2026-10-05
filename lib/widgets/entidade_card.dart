@@ -7,6 +7,20 @@ class EntidadeCard extends StatelessWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
 
+  static const Map<String, String> _linhasOpcoesFormatadas = {
+    'ORIXA': 'Orixá',
+    'EXU': 'Exu',
+    'POMBAGIRA': 'Pombagira',
+    'BAIANO': 'Baiano',
+    'CIGANO': 'Cigano',
+    'ERE': 'Erê',
+    'CABOCLO': 'Caboclo',
+    'BOIADEIRO': 'Boiadeiro',
+    'ORIENTE': 'Oriente',
+    'MARINHEIRO': 'Marinheiro',
+    'PRETO_VELHO': 'Preto Velho',
+  };
+
   const EntidadeCard({
     super.key,
     required this.entidade,
@@ -133,7 +147,7 @@ class EntidadeCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 3),
                             Text(
-                              'Linha: ${entidade.linhaEntidade}',
+                              'Linha: ${_linhasOpcoesFormatadas[entidade.linhaEntidade] ?? entidade.linhaEntidade}',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 fontSize: 10.5,
                                 color: colorScheme.onSecondaryContainer,

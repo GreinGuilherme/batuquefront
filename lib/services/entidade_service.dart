@@ -12,16 +12,38 @@ class EntidadeService {
       : _client = client ?? http.Client(),
         _authService = authService ?? AuthService();
 
+  String? _extrairMensagemErro(http.Response response) {
+    try {
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        final decoded = jsonDecode(decodedBody);
+        if (decoded is Map<String, dynamic>) {
+          return decoded['message'] ?? decoded['error'] ?? decoded['mensagem'] ?? decoded['erro'] ?? decoded['detail'];
+        }
+        return decodedBody;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<List<Entidade>> buscarEntidades() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar');
     final headers = await _authService.getAuthHeaders();
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
     if (response.statusCode == 200) {
-      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isEmpty) return [];
+      final dynamic json = jsonDecode(decodedBody);
+      if (json is List) {
+        return json.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (json is Map<String, dynamic> && json['content'] is List) {
+        return (json['content'] as List).map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao buscar entidades (status: ${response.statusCode})');
   }
 
   Future<List<Entidade>> filtrarEntidades(String termo) async {
@@ -36,10 +58,18 @@ class EntidadeService {
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
     if (response.statusCode == 200) {
-      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isEmpty) return [];
+      final dynamic json = jsonDecode(decodedBody);
+      if (json is List) {
+        return json.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (json is Map<String, dynamic> && json['content'] is List) {
+        return (json['content'] as List).map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao filtrar entidades (status: ${response.statusCode})');
   }
 
   Future<Entidade> cadastrarEntidade(Entidade entidade) async {
@@ -53,30 +83,95 @@ class EntidadeService {
           body: jsonEncode(entidade.toJson()),
         )
         .timeout(ApiConfig.timeout);
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return Entidade.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
+      Entidade resultado = entidade;
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        try {
+          final dynamic jsonResponse = jsonDecode(decodedBody);
+          if (jsonResponse is Map<String, dynamic>) {
+            var created = Entidade.fromJson(jsonResponse);
+            if (created.nomeEntidade.isEmpty && entidade.nomeEntidade.isNotEmpty) {
+              created = created.copyWith(nomeEntidade: entidade.nomeEntidade);
+            }
+            if (created.falange.isEmpty && entidade.falange.isNotEmpty) {
+              created = created.copyWith(falange: entidade.falange);
+            }
+            if (created.linhaEntidade.isEmpty && entidade.linhaEntidade.isNotEmpty) {
+              created = created.copyWith(linhaEntidade: entidade.linhaEntidade);
+            }
+            resultado = created;
+          } else if (jsonResponse is num) {
+            resultado = entidade.copyWith(id: jsonResponse.toInt());
+          }
+        } catch (_) {
+          final intId = int.tryParse(decodedBody);
+          if (intId != null) {
+            resultado = entidade.copyWith(id: intId);
+          }
+        }
+      }
+      return resultado;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao cadastrar entidade (status: ${response.statusCode})');
   }
 
   Future<Entidade> atualizarEntidade(int id, Entidade entidade) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/atualizar/$id');
     final headers = await _authService.getAuthHeaders();
 
-    final response = await _client
+    var response = await _client
         .patch(
           uri,
           headers: headers,
           body: jsonEncode(entidade.toJson()),
         )
         .timeout(ApiConfig.timeout);
-    if (response.statusCode == 200) {
-      return Entidade.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+
+    // Fallback para PUT se o backend não aceitar PATCH
+    if (response.statusCode == 405 || response.statusCode == 404) {
+      response = await _client
+          .put(
+            uri,
+            headers: headers,
+            body: jsonEncode(entidade.toJson()),
+          )
+          .timeout(ApiConfig.timeout);
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
+      Entidade resultado = entidade.copyWith(id: id);
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        try {
+          final dynamic jsonResponse = jsonDecode(decodedBody);
+          if (jsonResponse is Map<String, dynamic>) {
+            var updated = Entidade.fromJson(jsonResponse);
+            if (updated.nomeEntidade.isEmpty && entidade.nomeEntidade.isNotEmpty) {
+              updated = updated.copyWith(nomeEntidade: entidade.nomeEntidade);
+            }
+            if (updated.falange.isEmpty && entidade.falange.isNotEmpty) {
+              updated = updated.copyWith(falange: entidade.falange);
+            }
+            if (updated.linhaEntidade.isEmpty && entidade.linhaEntidade.isNotEmpty) {
+              updated = updated.copyWith(linhaEntidade: entidade.linhaEntidade);
+            }
+            resultado = updated.id == null ? updated.copyWith(id: id) : updated;
+          }
+        } catch (_) {}
+      }
+      return resultado;
+    }
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao atualizar entidade (status: ${response.statusCode})');
   }
 
   Future<void> deletarEntidade(int entidadeId, {String? nomeEntidade}) async {
+    final headers = await _authService.getAuthHeaders();
+
+    // 1. Tenta DELETE com parâmetro de query (?id=...&nomeEntidade=...)
     final queryParams = <String, String>{
       'id': entidadeId.toString(),
     };
@@ -84,14 +179,44 @@ class EntidadeService {
       queryParams['nomeEntidade'] = nomeEntidade;
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar')
+    Uri uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar')
         .replace(queryParameters: queryParams);
-    final headers = await _authService.getAuthHeaders();
+    var response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
 
-    final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
-    if (response.statusCode == 200 || response.statusCode == 204) {
+    // 2. Se 404/405, tenta com Path Variable (/entidade/deletar/{id})
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar/$entidadeId');
+      response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    }
+
+    // 3. Se ainda 404/405, tenta REST padrão (/entidade/{id})
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/entidade/$entidadeId');
+      response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    }
+
+    // 4. Se ainda 404/405, tenta com JSON Body no DELETE
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar');
+      response = await _client.delete(
+        uri,
+        headers: headers,
+        body: jsonEncode({
+          'id': entidadeId,
+          if (nomeEntidade != null && nomeEntidade.isNotEmpty) 'nomeEntidade': nomeEntidade,
+        }),
+      ).timeout(ApiConfig.timeout);
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 204 || response.statusCode == 202) {
       return;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw Exception('Acesso negado (${response.statusCode}): Você precisa estar autenticado como Administrador para deletar entidades.');
+    }
+
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao deletar entidade (status: ${response.statusCode})');
   }
 }
