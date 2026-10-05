@@ -34,9 +34,13 @@ class EntidadeService {
   }
 
   Future<List<Entidade>> filtrarEntidades(String termo) async {
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/entidade/buscar/filtrar?termo=${Uri.encodeComponent(termo)}',
-    );
+    final queryParams = <String, String>{};
+    if (termo.isNotEmpty) {
+      queryParams['termo'] = termo;
+    }
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar/filtro')
+        .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 
     try {

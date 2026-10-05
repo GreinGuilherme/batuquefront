@@ -6,11 +6,20 @@ import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
 import 'package:batuque/models/ponto_item.dart';
 import 'package:batuque/models/playlist.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:batuque/services/entidade_service.dart';
 import 'package:batuque/services/ponto_service.dart';
 import 'package:batuque/services/playlist_service.dart';
+import 'package:batuque/services/api_config.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
+    ApiConfig.enableMockFallback = true;
+  });
+
   group('EntidadeService Testes', () {
     late EntidadeService service;
 

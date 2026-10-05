@@ -76,6 +76,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
   }
 
   void _clearFilters(EntidadesProvider provider) {
+    _searchController.clear();
     setState(() {
       _tempSelectedLinhas.clear();
       _tempSelectedFalanges.clear();
@@ -332,8 +333,8 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                     children: todasLinhas.map((linha) {
                       final isSelected = _tempSelectedLinhas.contains(linha);
                       return FilterChip(
-                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        visualDensity: VisualDensity.compact,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                         label: Text(linha, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
@@ -366,8 +367,8 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                     children: todasFalanges.map((falange) {
                       final isSelected = _tempSelectedFalanges.contains(falange);
                       return FilterChip(
-                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        visualDensity: VisualDensity.compact,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                         label: Text(falange, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
@@ -467,7 +468,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                                 padding: const EdgeInsets.all(12),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 3.8,
+                                  childAspectRatio: 3.2,
                                   crossAxisSpacing: 8,
                                   mainAxisSpacing: 8,
                                 ),

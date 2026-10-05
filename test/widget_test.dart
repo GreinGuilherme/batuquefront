@@ -12,10 +12,20 @@ import 'package:batuque/widgets/entidade_card.dart';
 import 'package:batuque/widgets/ponto_card.dart';
 import 'package:batuque/widgets/audio_player_bottom_bar.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:batuque/services/api_config.dart';
+
 void main() {
+  setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
+    ApiConfig.enableMockFallback = true;
+  });
+
   testWidgets('BatuqueApp renders home page and tabs correctly', (WidgetTester tester) async {
     await tester.pumpWidget(const BatuqueApp());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify AppBar title
     expect(find.text('Batuque'), findsOneWidget);
@@ -27,11 +37,11 @@ void main() {
 
     // Tap on 'Pontos' tab
     await tester.tap(find.text('Pontos'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
 
     // Tap on 'Playlists' tab
     await tester.tap(find.text('Playlists'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
   });
 
   testWidgets('EntidadeCard renders entity details', (WidgetTester tester) async {

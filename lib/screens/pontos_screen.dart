@@ -85,6 +85,7 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
   }
 
   void _clearFilters(PontosProvider provider, List<Entidade> entidades) {
+    _searchController.clear();
     setState(() {
       _tempSelectedLinhas.clear();
       _tempSelectedFalanges.clear();
@@ -352,8 +353,8 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                     children: todasLinhas.map((linha) {
                       final isSelected = _tempSelectedLinhas.contains(linha);
                       return FilterChip(
-                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        visualDensity: VisualDensity.compact,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                         label: Text(linha, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
@@ -386,8 +387,8 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                     children: todasFalanges.map((falange) {
                       final isSelected = _tempSelectedFalanges.contains(falange);
                       return FilterChip(
-                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        visualDensity: VisualDensity.compact,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                         label: Text(falange, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {
@@ -421,8 +422,8 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                       if (entidade.id == null) return const SizedBox.shrink();
                       final isSelected = _tempSelectedEntidades.contains(entidade.id);
                       return FilterChip(
-                        visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: -2),
+                        visualDensity: VisualDensity.compact,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                         label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
                         selected: isSelected,
                         onSelected: (selected) {

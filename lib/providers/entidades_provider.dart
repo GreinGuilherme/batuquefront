@@ -54,12 +54,22 @@ class EntidadesProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (_todasEntidades.isEmpty) {
+        try {
+          _todasEntidades = await _service.buscarEntidades();
+        } catch (_) {}
+      }
+
       List<Entidade> base;
       if (_termoBusca.isNotEmpty) {
         base = await _service.filtrarEntidades(_termoBusca);
       } else {
-        base = await _service.buscarEntidades();
-        _todasEntidades = List.from(base);
+        if (_todasEntidades.isNotEmpty) {
+          base = List.from(_todasEntidades);
+        } else {
+          base = await _service.buscarEntidades();
+          _todasEntidades = List.from(base);
+        }
       }
 
       _aplicarFiltrosLocais(base);

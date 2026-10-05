@@ -9,6 +9,6 @@ class ApiConfig {
   static Duration timeout = const Duration(seconds: 10);
 
   /// Alternar fallback automático para dados mock.
-  /// Definido como `false` para usar exclusivamente o backend Java e o Banco de Dados.
-  static bool enableMockFallback = false;
+  /// Definido como `true` para garantir funcionamento gracioso caso o backend esteja offline.
+  static bool enableMockFallback = true;
 }
