@@ -44,7 +44,7 @@ class AuthService {
       var response = await _client
           .post(
             uri,
-            headers: _unauthenticatedHeaders,
+            headers: await getAuthHeaders(),
             body: bodyJson,
           )
           .timeout(ApiConfig.timeout);
@@ -55,7 +55,7 @@ class AuthService {
         response = await _client
             .post(
               uri,
-              headers: _unauthenticatedHeaders,
+              headers: await getAuthHeaders(),
               body: bodyJson,
             )
             .timeout(ApiConfig.timeout);
@@ -175,7 +175,7 @@ class AuthService {
       var response = await _client
           .post(
             uri,
-            headers: _unauthenticatedHeaders,
+            headers: await getAuthHeaders(),
             body: bodyJson,
           )
           .timeout(ApiConfig.timeout);
@@ -186,7 +186,7 @@ class AuthService {
         response = await _client
             .post(
               uri,
-              headers: _unauthenticatedHeaders,
+              headers: await getAuthHeaders(),
               body: bodyJson,
             )
             .timeout(ApiConfig.timeout);

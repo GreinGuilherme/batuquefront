@@ -195,12 +195,6 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
                   hintText: 'Ex: Caboclos, Preto Velhos, Baianos',
                   prefixIcon: Icon(Icons.grid_view_outlined),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe a falange';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(

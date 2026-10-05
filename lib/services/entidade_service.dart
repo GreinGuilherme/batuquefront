@@ -171,31 +171,29 @@ class EntidadeService {
   Future<void> deletarEntidade(int entidadeId, {String? nomeEntidade}) async {
     final headers = await _authService.getAuthHeaders();
 
-    // 1. Tenta DELETE com parâmetro de query (?id=...&nomeEntidade=...)
-    final queryParams = <String, String>{
-      'id': entidadeId.toString(),
-    };
-    if (nomeEntidade != null && nomeEntidade.isNotEmpty) {
-      queryParams['nomeEntidade'] = nomeEntidade;
-    }
-
-    Uri uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar')
-        .replace(queryParameters: queryParams);
+    // Prioriza o formato /entidade/deletar/{id} que é o padrão exigido
+    Uri uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar/$entidadeId');
     var response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
 
-    // 2. Se 404/405, tenta com Path Variable (/entidade/deletar/{id})
+    // Se 404/405, tenta com parâmetro de query (?id=...&nomeEntidade=...)
     if (response.statusCode == 404 || response.statusCode == 405) {
-      uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar/$entidadeId');
+      final queryParams = <String, String>{
+        'id': entidadeId.toString(),
+      };
+      if (nomeEntidade != null && nomeEntidade.isNotEmpty) {
+        queryParams['nomeEntidade'] = nomeEntidade;
+      }
+      uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar').replace(queryParameters: queryParams);
       response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
     }
 
-    // 3. Se ainda 404/405, tenta REST padrão (/entidade/{id})
+    // Se ainda 404/405, tenta REST padrão (/entidade/{id})
     if (response.statusCode == 404 || response.statusCode == 405) {
       uri = Uri.parse('${ApiConfig.baseUrl}/entidade/$entidadeId');
       response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
     }
 
-    // 4. Se ainda 404/405, tenta com JSON Body no DELETE
+    // Se ainda 404/405, tenta com JSON Body no DELETE
     if (response.statusCode == 404 || response.statusCode == 405) {
       uri = Uri.parse('${ApiConfig.baseUrl}/entidade/deletar');
       response = await _client.delete(

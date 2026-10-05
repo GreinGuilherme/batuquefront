@@ -209,7 +209,12 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                 ),
                 const SizedBox(width: 8),
                 IconButton.filled(
-                  onPressed: () => PlaylistFormDialog.show(context),
+                  onPressed: () async {
+                    await PlaylistFormDialog.show(context);
+                    if (context.mounted) {
+                      context.read<PlaylistsProvider>().carregarPlaylists();
+                    }
+                  },
                   icon: const Icon(Icons.add_rounded, size: 20),
                   style: IconButton.styleFrom(
                     shape: RoundedRectangleBorder(
