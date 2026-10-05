@@ -7,8 +7,4 @@ class ApiConfig {
 
   /// Timeout padrão para requisições HTTP
   static Duration timeout = const Duration(seconds: 10);
-
-  /// Alternar fallback automático para dados mock.
-  /// Definido como `true` para garantir funcionamento gracioso caso o backend esteja offline.
-  static bool enableMockFallback = true;
 }

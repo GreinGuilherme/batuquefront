@@ -74,7 +74,7 @@ void main() {
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-    ApiConfig.enableMockFallback = true;
+
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       const MethodChannel('xyz.luan/audioplayers.global'),
       (MethodCall methodCall) async {

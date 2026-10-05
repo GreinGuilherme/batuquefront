@@ -17,7 +17,7 @@ void main() {
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-    ApiConfig.enableMockFallback = true;
+
   });
 
   group('EntidadeService Testes', () {

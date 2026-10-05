@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import '../models/ponto_cantado.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
-import 'mock_data.dart';
 
 class PontoService {
   final http.Client _client;
@@ -13,24 +12,16 @@ class PontoService {
       : _client = client ?? http.Client(),
         _authService = authService ?? AuthService();
 
-  final List<PontoCantado> _mockPontos = List.from(MockData.pontos);
-  int _nextMockId = 100;
-
   Future<List<PontoCantado>> buscarPontos() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/buscar');
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
-      if (response.statusCode == 200) {
-        final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-        return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
+    if (response.statusCode == 200) {
+      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
     }
-    return List.from(_mockPontos);
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<List<PontoCantado>> filtrarPontos({String? termo, int? entidadeId}) async {
@@ -46,137 +37,92 @@ class PontoService {
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
-      if (response.statusCode == 200) {
-        final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-        return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
+    if (response.statusCode == 200) {
+      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonList.map((e) => PontoCantado.fromJson(e as Map<String, dynamic>)).toList();
     }
-
-    return _mockPontos.where((p) {
-      bool matchesTermo = true;
-      if (termo != null && termo.isNotEmpty) {
-        final tLower = termo.toLowerCase();
-        matchesTermo = p.nomePonto.toLowerCase().contains(tLower) ||
-            p.pontoLetra.toLowerCase().contains(tLower);
-      }
-      bool matchesEntidade = true;
-      if (entidadeId != null) {
-        matchesEntidade = p.entidadeId == entidadeId;
-      }
-      return matchesTermo && matchesEntidade;
-    }).toList();
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<PontoCantado> cadastrarPonto(PontoCantado ponto) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/cadastrar');
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(ponto.toJson()),
-          )
-          .timeout(ApiConfig.timeout);
-      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
-        PontoCantado resultado = ponto;
-        final decodedBody = utf8.decode(response.bodyBytes).trim();
-        if (decodedBody.isNotEmpty) {
-          try {
-            final dynamic jsonResponse = jsonDecode(decodedBody);
-            if (jsonResponse is Map<String, dynamic>) {
-              resultado = PontoCantado.fromJson(jsonResponse);
-            } else if (jsonResponse is num) {
-              resultado = ponto.copyWith(id: jsonResponse.toInt());
-            }
-          } catch (_) {
-            final intId = int.tryParse(decodedBody);
-            if (intId != null) {
-              resultado = ponto.copyWith(id: intId);
-            }
+    final response = await _client
+        .post(
+          uri,
+          headers: headers,
+          body: jsonEncode(ponto.toJson()),
+        )
+        .timeout(ApiConfig.timeout);
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+      PontoCantado resultado = ponto;
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        try {
+          final dynamic jsonResponse = jsonDecode(decodedBody);
+          if (jsonResponse is Map<String, dynamic>) {
+            resultado = PontoCantado.fromJson(jsonResponse);
+          } else if (jsonResponse is num) {
+            resultado = ponto.copyWith(id: jsonResponse.toInt());
+          }
+        } catch (_) {
+          final intId = int.tryParse(decodedBody);
+          if (intId != null) {
+            resultado = ponto.copyWith(id: intId);
           }
         }
-        final novoPonto = resultado.id == null ? resultado.copyWith(id: _nextMockId++) : resultado;
-        _mockPontos.add(novoPonto);
-        return novoPonto;
       }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+      return resultado;
     }
-    final novoPonto = ponto.copyWith(id: ponto.id ?? _nextMockId++);
-    _mockPontos.add(novoPonto);
-    return novoPonto;
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<PontoCantado> atualizarPonto(int id, PontoCantado ponto) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/atualizar/$id');
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      var response = await _client
-          .patch(
+    var response = await _client
+        .patch(
+          uri,
+          headers: headers,
+          body: jsonEncode(ponto.toJson()),
+        )
+        .timeout(ApiConfig.timeout);
+
+    // Fallback para PUT se o backend retornar 405 (Method Not Allowed) ou 404
+    if (response.statusCode == 405 || response.statusCode == 404) {
+      response = await _client
+          .put(
             uri,
             headers: headers,
             body: jsonEncode(ponto.toJson()),
           )
           .timeout(ApiConfig.timeout);
+    }
 
-      // Fallback para PUT se o backend retornar 405 (Method Not Allowed) ou 404
-      if (response.statusCode == 405 || response.statusCode == 404) {
-        response = await _client
-            .put(
-              uri,
-              headers: headers,
-              body: jsonEncode(ponto.toJson()),
-            )
-            .timeout(ApiConfig.timeout);
-      }
-
-      if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
-        PontoCantado resultado = ponto.copyWith(id: id);
-        final decodedBody = utf8.decode(response.bodyBytes).trim();
-        if (decodedBody.isNotEmpty) {
-          try {
-            final dynamic jsonResponse = jsonDecode(decodedBody);
-            if (jsonResponse is Map<String, dynamic>) {
-              var updated = PontoCantado.fromJson(jsonResponse);
-              if (updated.nomePonto.isEmpty && ponto.nomePonto.isNotEmpty) {
-                updated = updated.copyWith(nomePonto: ponto.nomePonto);
-              }
-              if (updated.pontoLetra.isEmpty && ponto.pontoLetra.isNotEmpty) {
-                updated = updated.copyWith(pontoLetra: ponto.pontoLetra);
-              }
-              resultado = updated.id == null ? updated.copyWith(id: id) : updated;
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
+      PontoCantado resultado = ponto.copyWith(id: id);
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        try {
+          final dynamic jsonResponse = jsonDecode(decodedBody);
+          if (jsonResponse is Map<String, dynamic>) {
+            var updated = PontoCantado.fromJson(jsonResponse);
+            if (updated.nomePonto.isEmpty && ponto.nomePonto.isNotEmpty) {
+              updated = updated.copyWith(nomePonto: ponto.nomePonto);
             }
-          } catch (_) {}
-        }
-        final index = _mockPontos.indexWhere((p) => p.id == id);
-        if (index != -1) {
-          _mockPontos[index] = resultado;
-        } else {
-          _mockPontos.add(resultado);
-        }
-        return resultado;
+            if (updated.pontoLetra.isEmpty && ponto.pontoLetra.isNotEmpty) {
+              updated = updated.copyWith(pontoLetra: ponto.pontoLetra);
+            }
+            resultado = updated.id == null ? updated.copyWith(id: id) : updated;
+          }
+        } catch (_) {}
       }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+      return resultado;
     }
-    final index = _mockPontos.indexWhere((p) => p.id == id);
-    final pontoAtualizado = ponto.copyWith(id: id);
-    if (index != -1) {
-      _mockPontos[index] = pontoAtualizado;
-    } else {
-      _mockPontos.add(pontoAtualizado);
-    }
-    return pontoAtualizado;
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<void> deletarPonto(int id, {String? nomePonto, String? nomeEntidade}) async {
@@ -194,15 +140,10 @@ class PontoService {
         .replace(queryParameters: queryParams);
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return;
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
     }
-    _mockPontos.removeWhere((p) => p.id == id);
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 }

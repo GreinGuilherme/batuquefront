@@ -18,7 +18,7 @@ import 'package:batuque/services/api_config.dart';
 void main() {
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-    ApiConfig.enableMockFallback = true;
+
   });
 
   testWidgets('BatuqueApp renders home page and tabs correctly', (WidgetTester tester) async {

@@ -3,7 +3,6 @@ import 'package:http/http.dart' as http;
 import '../models/entidade.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
-import 'mock_data.dart';
 
 class EntidadeService {
   final http.Client _client;
@@ -13,24 +12,16 @@ class EntidadeService {
       : _client = client ?? http.Client(),
         _authService = authService ?? AuthService();
 
-  final List<Entidade> _mockEntidades = List.from(MockData.entidades);
-  int _nextMockId = 100;
-
   Future<List<Entidade>> buscarEntidades() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar');
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
-      if (response.statusCode == 200) {
-        final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-        return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
+    if (response.statusCode == 200) {
+      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
     }
-    return List.from(_mockEntidades);
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<List<Entidade>> filtrarEntidades(String termo) async {
@@ -43,76 +34,46 @@ class EntidadeService {
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
-      if (response.statusCode == 200) {
-        final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-        return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
+    if (response.statusCode == 200) {
+      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
+      return jsonList.map((e) => Entidade.fromJson(e as Map<String, dynamic>)).toList();
     }
-    if (termo.isEmpty) return List.from(_mockEntidades);
-    final termoLower = termo.toLowerCase();
-    return _mockEntidades.where((e) {
-      return e.nomeEntidade.toLowerCase().contains(termoLower) ||
-          e.falange.toLowerCase().contains(termoLower) ||
-          e.linhaEntidade.toLowerCase().contains(termoLower);
-    }).toList();
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<Entidade> cadastrarEntidade(Entidade entidade) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/cadastrar');
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(entidade.toJson()),
-          )
-          .timeout(ApiConfig.timeout);
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return Entidade.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client
+        .post(
+          uri,
+          headers: headers,
+          body: jsonEncode(entidade.toJson()),
+        )
+        .timeout(ApiConfig.timeout);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Entidade.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     }
-    final novaEntidade = entidade.copyWith(id: entidade.id ?? _nextMockId++);
-    _mockEntidades.add(novaEntidade);
-    return novaEntidade;
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<Entidade> atualizarEntidade(int id, Entidade entidade) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/atualizar/$id');
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client
-          .patch(
-            uri,
-            headers: headers,
-            body: jsonEncode(entidade.toJson()),
-          )
-          .timeout(ApiConfig.timeout);
-      if (response.statusCode == 200) {
-        return Entidade.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client
+        .patch(
+          uri,
+          headers: headers,
+          body: jsonEncode(entidade.toJson()),
+        )
+        .timeout(ApiConfig.timeout);
+    if (response.statusCode == 200) {
+      return Entidade.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     }
-    final index = _mockEntidades.indexWhere((e) => e.id == id);
-    final entidadeAtualizada = entidade.copyWith(id: id);
-    if (index != -1) {
-      _mockEntidades[index] = entidadeAtualizada;
-    } else {
-      _mockEntidades.add(entidadeAtualizada);
-    }
-    return entidadeAtualizada;
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 
   Future<void> deletarEntidade(int entidadeId, {String? nomeEntidade}) async {
@@ -127,15 +88,10 @@ class EntidadeService {
         .replace(queryParameters: queryParams);
     final headers = await _authService.getAuthHeaders();
 
-    try {
-      final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return;
-      }
-      throw Exception('Erro na requisição: ${response.statusCode}');
-    } catch (_) {
-      if (!ApiConfig.enableMockFallback) rethrow;
+    final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
     }
-    _mockEntidades.removeWhere((e) => e.id == entidadeId);
+    throw Exception('Erro na requisição: ${response.statusCode}');
   }
 }

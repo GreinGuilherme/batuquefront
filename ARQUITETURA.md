@@ -57,7 +57,7 @@ lib/
 │   ├── entidade_service.dart  # Requisições HTTP de Entidades
 │   ├── playlist_service.dart  # Requisições HTTP de Playlists
 │   ├── ponto_service.dart     # Requisições HTTP de Pontos Cantados
-│   └── mock_data.dart         # Dados simulados (se a API estiver desativada)
+
 ├── theme/                     # Cores, fontes e temas do app
 │   └── app_theme.dart         # Definição do Tema Claro e Escuro (Material 3)
 └── widgets/                   # Componentes reutilizáveis da UI
@@ -191,7 +191,7 @@ Se precisar alterar o **nome exibido do app**, permissões de internet ou config
 | **Textos das Telas** | [`lib/screens/`](file:///C:/Users/grein/AndroidStudioProjects/batuque/lib/screens/) |
 | **Textos das Caixas de Diálogo / Formulários** | [`lib/widgets/`](file:///C:/Users/grein/AndroidStudioProjects/batuque/lib/widgets/) |
 | **URL do Servidor / API** | [`lib/services/api_config.dart`](file:///C:/Users/grein/AndroidStudioProjects/batuque/lib/services/api_config.dart) |
-| **Dados Fictícios Sem Backend** | [`lib/services/mock_data.dart`](file:///C:/Users/grein/AndroidStudioProjects/batuque/lib/services/mock_data.dart) |
+
 | **Ícones e Imagens Globais** | Material Icons no código ou pasta `assets/images/` |
 | **Ícone do App no Celular** | [`android/app/src/main/res/mipmap-*/`](file:///C:/Users/grein/AndroidStudioProjects/batuque/android/app/src/main/res/) |
 | **Nome do App no Android** | [`android/app/src/main/AndroidManifest.xml`](file:///C:/Users/grein/AndroidStudioProjects/batuque/android/app/src/main/AndroidManifest.xml) |

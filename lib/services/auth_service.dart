@@ -133,24 +133,6 @@ class AuthService {
         throw Exception('Falha no login: usuário ou senha incorretos.');
       }
     } catch (e) {
-      if (ApiConfig.enableMockFallback) {
-        final mockToken = _gerarMockJwt(email);
-        final payload = parseJwt(mockToken);
-        final nome = _extrairNomeDoEmail(email);
-        await _salvarSessao(
-          token: mockToken,
-          email: email,
-          nome: nome,
-          role: 'USUARIO',
-        );
-        return {
-          'token': mockToken,
-          'email': email,
-          'nome': nome,
-          'role': 'USUARIO',
-          'payload': payload,
-        };
-      }
       rethrow;
     }
   }
@@ -199,9 +181,6 @@ class AuthService {
         throw Exception(errorMsg ?? 'Erro ao cadastrar usuário.');
       }
     } catch (e) {
-      if (ApiConfig.enableMockFallback) {
-        return true;
-      }
       rethrow;
     }
   }
@@ -361,17 +340,5 @@ class AuthService {
     return null;
   }
 
-  String _gerarMockJwt(String email) {
-    final header = base64Url.encode(utf8.encode(jsonEncode({'alg': 'HS256', 'typ': 'JWT'})));
-    final expTime = DateTime.now().add(const Duration(hours: 2)).millisecondsSinceEpoch ~/ 1000;
-    final payloadMap = {
-      'iss': 'batuque-api',
-      'sub': email,
-      'nome': email.split('@').first,
-      'role': 'USUARIO',
-      'exp': expTime,
-    };
-    final payload = base64Url.encode(utf8.encode(jsonEncode(payloadMap)));
-    return '$header.$payload.mock_signature_hash';
-  }
+
 }
