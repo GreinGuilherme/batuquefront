@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/entidade.dart';
 import '../models/playlist.dart';
@@ -12,6 +11,7 @@ import '../providers/audio_player_provider.dart';
 import '../widgets/playlist_form_dialog.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 import 'ponto_detail_screen.dart';
+import 'presentation_screen.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final int playlistId;
@@ -25,9 +25,23 @@ class PlaylistDetailScreen extends StatefulWidget {
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   late final ScrollController _scrollController;
   final TextEditingController _searchController = TextEditingController();
+  late AudioPlayerProvider _audioProvider;
   bool _showScrollToTop = false;
   final Set<int> _expandedPontoIds = {};
   bool _isWakelockEnabled = true;
+  double _letrasFontScale = 1.0;
+
+  void _increaseFontSize() {
+    setState(() {
+      if (_letrasFontScale < 2.5) _letrasFontScale += 0.1;
+    });
+  }
+
+  void _decreaseFontSize() {
+    setState(() {
+      if (_letrasFontScale > 0.5) _letrasFontScale -= 0.1;
+    });
+  }
 
   bool _isFilterExpanded = false;
   Set<String> _tempSelectedLinhas = {};
@@ -41,9 +55,25 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _audioProvider = context.read<AudioPlayerProvider>();
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _enableWakelock();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final playlistsProvider = context.read<PlaylistsProvider>();
+      final audioProvider = context.read<AudioPlayerProvider>();
+      
+      Playlist? playlist;
+      try {
+        playlist = playlistsProvider.playlists.firstWhere((p) => p.id == widget.playlistId);
+      } catch (_) {}
+      
+      if (playlist != null && audioProvider.currentPlaylist?.id != playlist.id) {
+        audioProvider.prepararPlaylist(playlist, minimizado: true);
+      }
+    });
   }
 
   Future<void> _enableWakelock() async {
@@ -170,6 +200,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+
+    if (!_audioProvider.isPlaying) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _audioProvider.parar();
+      });
+    }
+
     super.dispose();
   }
 
@@ -268,13 +305,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     }
     final Playlist playlist = foundPlaylist;
 
-    final dataStr = playlist.dataCriacao != null
-        ? DateFormat('dd/MM/yyyy').format(playlist.dataCriacao!)
-        : 'Data desconhecida';
-
-    final isPlayingCurrentPlaylist =
-        audioProvider.currentPlaylist?.id == playlist.id && audioProvider.isPlaying;
-
     // Calcular características disponíveis para o filtro em cascata
     final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
 
@@ -357,125 +387,80 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               child: const Icon(Icons.arrow_upward_rounded),
             )
           : null,
-      body: Column(
-        children: [
-          // Header Card Compacto e Discreto
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: colorScheme.secondary.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: colorScheme.secondary,
-                  foregroundColor: colorScheme.onSecondary,
-                  child: const Icon(Icons.queue_music_rounded, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        playlist.nomePlaylist,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Criada em: $dataStr • ${playlist.pontos.length} ponto(s)',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  onPressed: playlist.pontos.isEmpty
-                      ? null
-                      : () {
-                          if (isPlayingCurrentPlaylist) {
-                            audioProvider.pausar();
-                          } else {
-                            audioProvider.tocarPlaylist(playlist);
-                          }
-                        },
-                  icon: Icon(
-                    isPlayingCurrentPlaylist
-                        ? Icons.pause_rounded
-                        : Icons.play_arrow_rounded,
-                    size: 24,
-                  ),
-                  tooltip: isPlayingCurrentPlaylist
-                      ? 'Pausar Reprodução Sequencial'
-                      : 'Iniciar Reprodução Sequencial',
-                ),
-              ],
-            ),
-          ),
-
-          // Search & Action Header
+      body: RefreshIndicator(
+        onRefresh: () => playlistsProvider.carregarPlaylists(),
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Search & Action Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Buscar ponto na playlist...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear_rounded),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+                  child: SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Buscar ponto na playlist...',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {});
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
+                      onChanged: (value) {
+                        setState(() {});
+                      },
                     ),
-                    onChanged: (value) {
-                      setState(() {});
-                    },
                   ),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _toggleFilterPanel,
-                  icon: Icon(
-                    _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                    size: 18,
-                  ),
-                  label: Text(
-                    totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                SizedBox(
+                  height: 40,
+                  child: OutlinedButton(
+                    onPressed: _toggleFilterPanel,
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
+                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                          : null,
                     ),
-                    backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
-                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                        : null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -665,16 +650,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         child: const Text('Resetar seleções'),
                       ),
                       const SizedBox(width: 8),
-                      FilledButton.icon(
+                      FilledButton(
                         onPressed: _applyFilter,
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: const Text('Aplicar Filtro'),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_rounded, size: 16),
+                            SizedBox(width: 4),
+                            Text('Aplicar Filtro'),
+                          ],
                         ),
                       ),
                     ],
@@ -704,14 +695,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    TextButton.icon(
+                    TextButton(
                       onPressed: () => _showAddPontoModal(context, playlist),
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text('Adicionar'),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_rounded, size: 20),
+                          SizedBox(width: 2),
+                          Text('Adicionar'),
+                        ],
                       ),
                     ),
                   ],
@@ -721,44 +718,96 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      OutlinedButton.icon(
+                      OutlinedButton(
+                        onPressed: playlist.pontos.isEmpty ? null : _decreaseFontSize,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        child: const Text('A-'),
+                      ),
+                      const SizedBox(width: 4),
+                      OutlinedButton(
+                        onPressed: playlist.pontos.isEmpty ? null : _increaseFontSize,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        child: const Text('A+'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
                         onPressed: playlist.pontos.isEmpty
                             ? null
                             : () => _expandAll(playlist.pontos),
-                        icon: const Icon(Icons.unfold_more_rounded, size: 18),
-                        label: const Text('Expandir todos'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           textStyle: const TextStyle(fontSize: 12),
                         ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.unfold_more_rounded, size: 18),
+                            SizedBox(width: 4),
+                            Text('Expandir todos'),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
-                        icon: const Icon(Icons.unfold_less_rounded, size: 18),
-                        label: const Text('Recolher todos'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           textStyle: const TextStyle(fontSize: 12),
                         ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.unfold_less_rounded, size: 18),
+                            SizedBox(width: 4),
+                            Text('Recolher todos'),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
+                      OutlinedButton(
+                        onPressed: playlist.pontos.isEmpty ? null : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PresentationScreen(
+                                pontos: playlist.pontos,
+                                title: 'Apresentação - ${playlist.nomePlaylist}',
+                              ),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.slideshow_rounded, size: 18),
+                            SizedBox(width: 4),
+                            Text('Apresentar'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
                         onPressed: _toggleWakelock,
-                        icon: Icon(
-                          _isWakelockEnabled
-                              ? Icons.screen_lock_portrait_rounded
-                              : Icons.lock_open_rounded,
-                          size: 18,
-                          color: _isWakelockEnabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                        ),
-                        label: Text(
-                          _isWakelockEnabled ? 'Tela acesa' : 'Bloqueio auto',
-                        ),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
@@ -768,6 +817,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ? colorScheme.primaryContainer.withValues(alpha: 0.5)
                               : null,
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isWakelockEnabled
+                                  ? Icons.screen_lock_portrait_rounded
+                                  : Icons.lock_open_rounded,
+                              size: 18,
+                              color: _isWakelockEnabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isWakelockEnabled ? 'Tela acesa' : 'Bloqueio auto',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -776,125 +841,139 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
             ),
           ),
 
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => playlistsProvider.carregarPlaylists(),
-              child: playlist.pontos.isEmpty
-                  ? SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.4,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                ],
+              ),
+            ),
+            if (playlist.pontos.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.4,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.queue_music_outlined,
+                          size: 64,
+                          color: colorScheme.outline,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Sua playlist está vazia.\nAdicione pontos para organizar sua gira.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => _showAddPontoModal(context, playlist),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.queue_music_outlined,
-                                size: 64,
-                                color: colorScheme.outline,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Sua playlist está vazia.\nAdicione pontos para organizar sua gira.',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyLarge,
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: () => _showAddPontoModal(context, playlist),
-                                icon: const Icon(Icons.add_rounded),
-                                label: const Text('Adicionar Pontos'),
-                              ),
+                              Icon(Icons.add_rounded),
+                              SizedBox(width: 4),
+                              Text('Adicionar Pontos'),
                             ],
                           ),
                         ),
-                      ),
-                    )
-                  : pontosFiltrados.isEmpty
-                      ? SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.4,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.search_off_rounded,
-                                    size: 64,
-                                    color: colorScheme.outline,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Nenhum ponto encontrado na playlist com os filtros aplicados.',
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  OutlinedButton.icon(
-                                    onPressed: _clearFilters,
-                                    icon: const Icon(Icons.close_rounded),
-                                    label: const Text('Limpar Filtros'),
-                                  ),
-                                ],
-                              ),
-                            ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (pontosFiltrados.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.4,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 64,
+                          color: colorScheme.outline,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Nenhum ponto encontrado na playlist com os filtros aplicados.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: _clearFilters,
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.close_rounded),
+                              SizedBox(width: 4),
+                              Text('Limpar Filtros'),
+                            ],
                           ),
-                        )
-                      : temFiltroOuBuscaAtiva
-                          ? ListView.builder(
-                              controller: _scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              itemCount: pontosFiltrados.length,
-                              itemBuilder: (context, index) {
-                                final item = pontosFiltrados[index];
-                                return _buildPontoCard(
-                                  context: context,
-                                  item: item,
-                                  index: index,
-                                  playlist: playlist,
-                                  entidades: entidades,
-                                  audioProvider: audioProvider,
-                                  playlistsProvider: playlistsProvider,
-                                  colorScheme: colorScheme,
-                                  theme: theme,
-                                  isFiltered: true,
-                                );
-                              },
-                            )
-                          : ReorderableListView.builder(
-                              scrollController: _scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              itemCount: playlist.pontos.length,
-                              onReorderItem: (oldIndex, newIndex) {
-                                playlistsProvider.reordenarPontosLocais(
-                                  playlist.id!,
-                                  oldIndex,
-                                  newIndex > oldIndex ? newIndex + 1 : newIndex,
-                                );
-                                playlistsProvider.salvarPlaylist(playlist.id!);
-                              },
-                              itemBuilder: (context, index) {
-                                final item = playlist.pontos[index];
-                                return _buildPontoCard(
-                                  context: context,
-                                  item: item,
-                                  index: index,
-                                  playlist: playlist,
-                                  entidades: entidades,
-                                  audioProvider: audioProvider,
-                                  playlistsProvider: playlistsProvider,
-                                  colorScheme: colorScheme,
-                                  theme: theme,
-                                  isFiltered: false,
-                                );
-                              },
-                            ),
-            ),
-          ),
-        ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (temFiltroOuBuscaAtiva)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = pontosFiltrados[index];
+                      return _buildPontoCard(
+                        context: context,
+                        item: item,
+                        index: index,
+                        playlist: playlist,
+                        entidades: entidades,
+                        audioProvider: audioProvider,
+                        playlistsProvider: playlistsProvider,
+                        colorScheme: colorScheme,
+                        theme: theme,
+                        isFiltered: true,
+                      );
+                    },
+                    childCount: pontosFiltrados.length,
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                sliver: SliverReorderableList(
+                  itemCount: playlist.pontos.length,
+                  onReorderItem: (oldIndex, newIndex) {
+                    playlistsProvider.reordenarPontosLocais(
+                      playlist.id!,
+                      oldIndex,
+                      newIndex,
+                    );
+                    playlistsProvider.salvarPlaylist(playlist.id!);
+                  },
+                  itemBuilder: (context, index) {
+                    final item = playlist.pontos[index];
+                    return _buildPontoCard(
+                      context: context,
+                      item: item,
+                      index: index,
+                      playlist: playlist,
+                      entidades: entidades,
+                      audioProvider: audioProvider,
+                      playlistsProvider: playlistsProvider,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                      isFiltered: false,
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: const AudioPlayerBottomBar(),
     );
@@ -943,7 +1022,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               }
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -973,7 +1052,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             color: isPlayingThisTrack ? colorScheme.primary : null,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        // Espaçamento reduzido
                         Row(
                           children: [
                             Expanded(
@@ -992,8 +1071,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   iconSize: 20,
                                   icon: Icon(
@@ -1017,8 +1096,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   iconSize: 20,
                                   icon: Icon(
@@ -1035,8 +1114,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  constraints: const BoxConstraints(),
-                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   iconSize: 20,
                                   icon: const Icon(
@@ -1116,6 +1195,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ponto.pontoLetra,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             height: 1.4,
+                            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14.0) * _letrasFontScale,
                           ),
                         )
                       : Text(
@@ -1123,6 +1203,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontStyle: FontStyle.italic,
                             color: theme.hintColor,
+                            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14.0) * _letrasFontScale,
                           ),
                         ),
                 ],

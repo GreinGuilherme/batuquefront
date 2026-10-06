@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/ponto_cantado.dart';
 import '../models/entidade.dart';
+import '../models/sync_event.dart';
 import '../services/ponto_service.dart';
 
 class PontosProvider extends ChangeNotifier {
@@ -115,6 +116,31 @@ class PontosProvider extends ChangeNotifier {
     _falangesFiltro.clear();
     _entidadesFiltro.clear();
     await carregarPontos(listaEntidades: listaEntidades);
+  }
+
+  /// Método para sincronizar com eventos do WebSocket/STOMP
+  void sincronizar(SyncEvent event) {
+    if (event.acao == "CREATE") {
+      final ponto = PontoCantado.fromJson(event.dados as Map<String, dynamic>);
+      final index = _pontos.indexWhere((p) => p.id == ponto.id);
+      if (index == -1) {
+        _pontos.add(ponto);
+      }
+    } else if (event.acao == "UPDATE") {
+      final ponto = PontoCantado.fromJson(event.dados as Map<String, dynamic>);
+      final index = _pontos.indexWhere((p) => p.id == ponto.id);
+      if (index != -1) {
+        _pontos[index] = ponto;
+      } else {
+        _pontos.add(ponto);
+      }
+    } else if (event.acao == "DELETE") {
+      final id = event.idParaDeletar;
+      if (id != null) {
+        _pontos.removeWhere((p) => p.id == id);
+      }
+    }
+    notifyListeners();
   }
 
   Future<bool> cadastrarPonto(PontoCantado ponto) async {

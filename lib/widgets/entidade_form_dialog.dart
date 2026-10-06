@@ -50,23 +50,68 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nomeController;
   late final TextEditingController _falangeController;
-  late final TextEditingController _linhaController;
+  String? _selectedLinha;
   bool _isSaving = false;
+
+  static const Map<String, String> _linhasOpcoes = {
+    'ORIXA': 'Orixá',
+    'EXU': 'Exu',
+    'POMBAGIRA': 'Pombagira',
+    'BAIANO': 'Baiano',
+    'CIGANO': 'Cigano',
+    'ERE': 'Erê',
+    'CABOCLO': 'Caboclo',
+    'BOIADEIRO': 'Boiadeiro',
+    'ORIENTE': 'Oriente',
+    'MARINHEIRO': 'Marinheiro',
+    'PRETO_VELHO': 'Preto Velho',
+  };
 
   @override
   void initState() {
     super.initState();
     _nomeController = TextEditingController(text: widget.entidade?.nomeEntidade ?? '');
     _falangeController = TextEditingController(text: widget.entidade?.falange ?? '');
-    _linhaController = TextEditingController(text: widget.entidade?.linhaEntidade ?? '');
+
+    final linhaExistente = widget.entidade?.linhaEntidade ?? '';
+    _selectedLinha = _mapearParaChaveUpper(linhaExistente);
+
+    _nomeController.addListener(_validateForm);
+  }
+
+  String? _mapearParaChaveUpper(String texto) {
+    if (texto.trim().isEmpty) return null;
+    final t = texto.trim();
+
+    if (_linhasOpcoes.containsKey(t)) return t;
+
+    final tUpper = t.toUpperCase().replaceAll(' ', '_');
+    if (_linhasOpcoes.containsKey(tUpper)) return tUpper;
+
+    for (final entry in _linhasOpcoes.entries) {
+      if (entry.value.toLowerCase() == t.toLowerCase() ||
+          entry.key.toLowerCase() == t.toLowerCase()) {
+        return entry.key;
+      }
+    }
+
+    return null;
+  }
+
+  void _validateForm() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _nomeController.removeListener(_validateForm);
     _nomeController.dispose();
     _falangeController.dispose();
-    _linhaController.dispose();
     super.dispose();
+  }
+
+  bool get _isFormValid {
+    return _nomeController.text.trim().isNotEmpty && _selectedLinha != null;
   }
 
   Future<void> _salvar() async {
@@ -83,7 +128,7 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
       id: widget.entidade?.id,
       nomeEntidade: _nomeController.text.trim(),
       falange: _falangeController.text.trim(),
-      linhaEntidade: _linhaController.text.trim(),
+      linhaEntidade: _selectedLinha ?? '',
     );
 
     bool sucesso = false;
@@ -161,24 +206,30 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
                   hintText: 'Ex: Caboclos, Preto Velhos, Baianos',
                   prefixIcon: Icon(Icons.grid_view_outlined),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe a falange';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _linhaController,
+              DropdownButtonFormField<String>(
+                initialValue: _selectedLinha,
+                isExpanded: true,
+                menuMaxHeight: 336.0, // Exibe exatamente 7 opções por vez, permitindo rolagem
                 decoration: const InputDecoration(
-                  labelText: 'Linha da Entidade',
-                  hintText: 'Ex: Oxóssi, Ogum, Iemanjá',
+                  labelText: 'Linha da Entidade *',
                   prefixIcon: Icon(Icons.shield_outlined),
                 ),
+                items: _linhasOpcoes.entries.map((entry) {
+                  return DropdownMenuItem<String>(
+                    value: entry.key,
+                    child: Text(entry.value),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedLinha = value;
+                  });
+                },
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Informe a linha da entidade';
+                    return 'Selecione a linha da entidade';
                   }
                   return null;
                 },
@@ -193,7 +244,11 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _isSaving ? null : _salvar,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isFormValid ? Theme.of(context).colorScheme.primaryContainer : null,
+            foregroundColor: _isFormValid ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+          ),
+          onPressed: (_isSaving || !_isFormValid) ? null : _salvar,
           child: _isSaving
               ? const SizedBox(
                   width: 20,

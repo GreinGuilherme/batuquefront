@@ -62,14 +62,29 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
     _letraController = TextEditingController(text: widget.ponto?.pontoLetra ?? '');
     _audioUrlController = TextEditingController(text: widget.ponto?.audioUrl ?? '');
     _selectedEntidadeId = widget.ponto?.entidadeId;
+
+    _nomeController.addListener(_validateForm);
+    _letraController.addListener(_validateForm);
+  }
+
+  void _validateForm() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _nomeController.removeListener(_validateForm);
+    _letraController.removeListener(_validateForm);
     _nomeController.dispose();
     _letraController.dispose();
     _audioUrlController.dispose();
     super.dispose();
+  }
+
+  bool get _isFormValid {
+    return _nomeController.text.trim().isNotEmpty &&
+           _letraController.text.trim().isNotEmpty &&
+           _selectedEntidadeId != null;
   }
 
   Future<void> _salvar() async {
@@ -162,9 +177,16 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
               DropdownButtonFormField<int?>(
                 initialValue: _selectedEntidadeId,
                 decoration: const InputDecoration(
-                  labelText: 'Entidade Vinculada',
+                  labelText: 'Entidade Vinculada *',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
+                validator: (value) {
+                  if (value == null) {
+                    return 'Selecione uma entidade';
+                  }
+                  return null;
+                },
+                isExpanded: true,
                 items: [
                   const DropdownMenuItem<int?>(
                     value: null,
@@ -172,7 +194,10 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
                   ),
                   ...entidades.map((e) => DropdownMenuItem<int?>(
                         value: e.id,
-                        child: Text('${e.nomeEntidade} (${e.linhaEntidade})'),
+                        child: Text(
+                          '${e.nomeEntidade} (${e.linhaEntidade})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       )),
                 ],
                 onChanged: (value) {
@@ -211,12 +236,6 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
                   helperMaxLines: 2,
                   prefixIcon: Icon(Icons.link_outlined),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Informe a URL do áudio';
-                  }
-                  return null;
-                },
               ),
             ],
           ),
@@ -228,7 +247,11 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _isSaving ? null : _salvar,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isFormValid ? Theme.of(context).colorScheme.primaryContainer : null,
+            foregroundColor: _isFormValid ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+          ),
+          onPressed: (_isSaving || !_isFormValid) ? null : _salvar,
           child: _isSaving
               ? const SizedBox(
                   width: 20,

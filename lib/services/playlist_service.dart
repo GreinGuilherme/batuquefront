@@ -12,16 +12,38 @@ class PlaylistService {
       : _client = client ?? http.Client(),
         _authService = authService ?? AuthService();
 
+  String? _extrairMensagemErro(http.Response response) {
+    try {
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isNotEmpty) {
+        final decoded = jsonDecode(decodedBody);
+        if (decoded is Map<String, dynamic>) {
+          return decoded['message'] ?? decoded['error'] ?? decoded['mensagem'] ?? decoded['erro'] ?? decoded['detail'];
+        }
+        return decodedBody;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<List<Playlist>> buscarPlaylists() async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/buscar');
     final headers = await _authService.getAuthHeaders();
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
     if (response.statusCode == 200) {
-      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isEmpty) return [];
+      final dynamic json = jsonDecode(decodedBody);
+      if (json is List) {
+        return json.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (json is Map<String, dynamic> && json['content'] is List) {
+        return (json['content'] as List).map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao buscar playlists (status: ${response.statusCode})');
   }
 
   Future<List<Playlist>> filtrarPlaylists(String termo) async {
@@ -32,10 +54,18 @@ class PlaylistService {
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);
     if (response.statusCode == 200) {
-      final List jsonList = jsonDecode(utf8.decode(response.bodyBytes));
-      return jsonList.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
+      final decodedBody = utf8.decode(response.bodyBytes).trim();
+      if (decodedBody.isEmpty) return [];
+      final dynamic json = jsonDecode(decodedBody);
+      if (json is List) {
+        return json.map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
+      } else if (json is Map<String, dynamic> && json['content'] is List) {
+        return (json['content'] as List).map((e) => Playlist.fromJson(e as Map<String, dynamic>)).toList();
+      }
+      return [];
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao filtrar playlists (status: ${response.statusCode})');
   }
 
   Future<Playlist> cadastrarPlaylist(Playlist playlist) async {
@@ -49,7 +79,7 @@ class PlaylistService {
           body: jsonEncode(playlist.toUpdateJson()),
         )
         .timeout(ApiConfig.timeout);
-    if (response.statusCode == 200 || response.statusCode == 201) {
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
       final decodedBody = utf8.decode(response.bodyBytes).trim();
       if (decodedBody.isNotEmpty) {
         try {
@@ -75,21 +105,33 @@ class PlaylistService {
       }
       return playlist;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao cadastrar playlist (status: ${response.statusCode})');
   }
 
   Future<Playlist> atualizarPlaylist(int id, Playlist playlist) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/atualizar/$id');
     final headers = await _authService.getAuthHeaders();
 
-    final response = await _client
+    var response = await _client
         .put(
           uri,
           headers: headers,
           body: jsonEncode(playlist.toUpdateJson()),
         )
         .timeout(ApiConfig.timeout);
-    if (response.statusCode == 200) {
+
+    if (response.statusCode == 405 || response.statusCode == 404) {
+      response = await _client
+          .patch(
+            uri,
+            headers: headers,
+            body: jsonEncode(playlist.toUpdateJson()),
+          )
+          .timeout(ApiConfig.timeout);
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204 || response.statusCode == 202) {
       final decodedBody = utf8.decode(response.bodyBytes).trim();
       if (decodedBody.isNotEmpty) {
         try {
@@ -108,10 +150,13 @@ class PlaylistService {
       }
       return playlist.copyWith(id: id);
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao atualizar playlist (status: ${response.statusCode})');
   }
 
   Future<void> deletarPlaylist(int id, {String? nomePlaylist}) async {
+    final headers = await _authService.getAuthHeaders();
+
     final queryParams = <String, String>{
       'id': id.toString(),
     };
@@ -119,14 +164,29 @@ class PlaylistService {
       queryParams['nomePlaylist'] = nomePlaylist;
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/deletar')
+    Uri uri = Uri.parse('${ApiConfig.baseUrl}/playlist/deletar')
         .replace(queryParameters: queryParams);
-    final headers = await _authService.getAuthHeaders();
+    var response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
 
-    final response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
-    if (response.statusCode == 200 || response.statusCode == 204) {
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/playlist/deletar/$id');
+      response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    }
+
+    if (response.statusCode == 404 || response.statusCode == 405) {
+      uri = Uri.parse('${ApiConfig.baseUrl}/playlist/$id');
+      response = await _client.delete(uri, headers: headers).timeout(ApiConfig.timeout);
+    }
+
+    if (response.statusCode == 200 || response.statusCode == 204 || response.statusCode == 202) {
       return;
     }
-    throw Exception('Erro na requisição: ${response.statusCode}');
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw Exception('Acesso negado (${response.statusCode}): Você precisa estar autenticado para deletar playlists.');
+    }
+
+    final msg = _extrairMensagemErro(response);
+    throw Exception(msg ?? 'Erro ao deletar playlist (status: ${response.statusCode})');
   }
 }

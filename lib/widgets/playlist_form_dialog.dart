@@ -55,12 +55,22 @@ class _PlaylistFormDialogState extends State<PlaylistFormDialog> {
   void initState() {
     super.initState();
     _nomeController = TextEditingController(text: widget.playlist?.nomePlaylist ?? '');
+    _nomeController.addListener(_validateForm);
+  }
+
+  void _validateForm() {
+    setState(() {});
   }
 
   @override
   void dispose() {
+    _nomeController.removeListener(_validateForm);
     _nomeController.dispose();
     super.dispose();
+  }
+
+  bool get _isFormValid {
+    return _nomeController.text.trim().isNotEmpty;
   }
 
   Future<void> _salvar() async {
@@ -157,7 +167,11 @@ class _PlaylistFormDialogState extends State<PlaylistFormDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _isSaving ? null : _salvar,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isFormValid ? Theme.of(context).colorScheme.primaryContainer : null,
+            foregroundColor: _isFormValid ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+          ),
+          onPressed: (_isSaving || !_isFormValid) ? null : _salvar,
           child: _isSaving
               ? const SizedBox(
                   width: 20,

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/playlist.dart';
 import '../models/ponto_cantado.dart';
 import '../models/ponto_item.dart';
+import '../models/sync_event.dart';
 import '../services/playlist_service.dart';
 
 class PlaylistsProvider extends ChangeNotifier {
@@ -46,6 +47,31 @@ class PlaylistsProvider extends ChangeNotifier {
   Future<void> filtrarPlaylists(String termo) async {
     _termoBusca = termo;
     await carregarPlaylists();
+  }
+
+  /// Método para sincronizar com eventos do WebSocket/STOMP
+  void sincronizar(SyncEvent event) {
+    if (event.acao == "CREATE") {
+      final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
+      final index = _playlists.indexWhere((p) => p.id == playlist.id);
+      if (index == -1) {
+        _playlists.add(playlist);
+      }
+    } else if (event.acao == "UPDATE") {
+      final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
+      final index = _playlists.indexWhere((p) => p.id == playlist.id);
+      if (index != -1) {
+        _playlists[index] = playlist;
+      } else {
+        _playlists.add(playlist);
+      }
+    } else if (event.acao == "DELETE") {
+      final id = event.idParaDeletar;
+      if (id != null) {
+        _playlists.removeWhere((p) => p.id == id);
+      }
+    }
+    notifyListeners();
   }
 
   Future<bool> cadastrarPlaylist(Playlist playlist) async {

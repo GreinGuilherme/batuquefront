@@ -36,12 +36,14 @@ dependencies:
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
   http: ^1.6.0
+  dio: ^5.4.0
   audioplayers: ^6.8.1
   google_fonts: ^8.2.1
   intl: ^0.20.3
   wakelock_plus: ^1.2.8
   youtube_explode_dart: ^2.5.2
   shared_preferences: ^2.5.2
+  stomp_dart_client: ^3.0.1
 
 dev_dependencies:
   flutter_test:
@@ -53,7 +55,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.3
+  flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
   android: "ic_launcher"

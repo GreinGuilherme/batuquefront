@@ -181,6 +181,58 @@ class AudioPlayerProvider extends ChangeNotifier {
     );
   }
 
+  /// Prepara uma playlist para reprodução mas não inicia o play
+  Future<void> prepararPlaylist(Playlist playlist, {int startIndex = 0, bool minimizado = true}) async {
+    if (playlist.pontos.isEmpty) return;
+
+    final validIndex = startIndex.clamp(0, playlist.pontos.length - 1);
+    final item = playlist.pontos[validIndex];
+    final ponto = item.ponto;
+
+    _errorMessage = null;
+    _currentPonto = ponto;
+    _currentItem = item;
+    _currentPlaylist = playlist;
+    _currentIndex = validIndex;
+
+    _position = Duration.zero;
+    _duration = Duration.zero;
+    _isMinimized = minimizado;
+    _playerState = PlayerState.stopped;
+    notifyListeners();
+
+    await _audioPlayer.stop();
+
+    final trimmedUrl = ponto.audioUrl.trim();
+    if (trimmedUrl.isEmpty) {
+      _errorMessage = 'URL de áudio inválida ou vazia.';
+      notifyListeners();
+      return;
+    }
+
+    String playUrl = trimmedUrl;
+    if (_isYouTubeUrl(trimmedUrl)) {
+      try {
+        final yt = YoutubeExplode();
+        final manifest = await yt.videos.streamsClient.getManifest(trimmedUrl);
+        yt.close();
+        final audioStreamInfo = manifest.audioOnly.withHighestBitrate();
+        playUrl = audioStreamInfo.url.toString();
+      } catch (e) {
+        _errorMessage = 'Não foi possível carregar o áudio do YouTube. Verifique o link ou a conexão.';
+        notifyListeners();
+        return;
+      }
+    }
+
+    try {
+      await _audioPlayer.setSource(UrlSource(playUrl));
+    } catch (e) {
+      _errorMessage = 'Erro ao carregar fonte de áudio: $e';
+      notifyListeners();
+    }
+  }
+
   /// Toca a próxima faixa da playlist
   Future<void> tocarProxima() async {
     if (temProxima) {

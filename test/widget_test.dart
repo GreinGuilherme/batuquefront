@@ -13,7 +13,6 @@ import 'package:batuque/widgets/ponto_card.dart';
 import 'package:batuque/widgets/audio_player_bottom_bar.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:batuque/services/api_config.dart';
 
 void main() {
   setUpAll(() {

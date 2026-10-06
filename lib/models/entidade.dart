@@ -12,11 +12,20 @@ class Entidade {
   });
 
   factory Entidade.fromJson(Map<String, dynamic> json) {
+    int? parsedId;
+    if (json['id'] != null) {
+      if (json['id'] is num) {
+        parsedId = (json['id'] as num).toInt();
+      } else if (json['id'] is String) {
+        parsedId = int.tryParse(json['id'] as String);
+      }
+    }
+
     return Entidade(
-      id: json['id'] as int?,
-      nomeEntidade: (json['nomeEntidade'] ?? json['nome_entidade'] ?? '') as String,
+      id: parsedId,
+      nomeEntidade: (json['nomeEntidade'] ?? json['nome_entidade'] ?? json['nome'] ?? '') as String,
       falange: (json['falange'] ?? '') as String,
-      linhaEntidade: (json['linhaEntidade'] ?? json['linha_entidade'] ?? '') as String,
+      linhaEntidade: (json['linhaEntidade'] ?? json['linha_entidade'] ?? json['linha'] ?? '') as String,
     );
   }
 
