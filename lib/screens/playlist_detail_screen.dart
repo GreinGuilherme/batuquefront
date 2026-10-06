@@ -11,6 +11,7 @@ import '../providers/audio_player_provider.dart';
 import '../widgets/playlist_form_dialog.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 import 'ponto_detail_screen.dart';
+import 'presentation_screen.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final int playlistId;
@@ -695,6 +696,28 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
                         icon: const Icon(Icons.unfold_less_rounded, size: 18),
                         label: const Text('Recolher todos'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: playlist.pontos.isEmpty ? null : () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PresentationScreen(
+                                pontos: playlist.pontos,
+                                title: 'Apresentação - ${playlist.nomePlaylist}',
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.slideshow_rounded, size: 18),
+                        label: const Text('Apresentar'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
