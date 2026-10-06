@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/ponto_cantado.dart';
 import '../models/ponto_item.dart';
 
@@ -26,6 +27,9 @@ class _PresentationScreenState extends State<PresentationScreen> {
   @override
   void initState() {
     super.initState();
+    // Esconde a barra inferior de navegação e a barra de status. 
+    // Quando deslizado, aparece por alguns segundos e volta a esconder.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   void _togglePlayPause() {
@@ -117,6 +121,8 @@ class _PresentationScreenState extends State<PresentationScreen> {
     _scrollTimer?.cancel();
     _manualScrollTimer?.cancel();
     _scrollController.dispose();
+    // Restaura a interface normal quando sair da tela de apresentação
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
