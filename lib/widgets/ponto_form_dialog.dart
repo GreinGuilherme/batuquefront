@@ -186,6 +186,7 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
                   }
                   return null;
                 },
+                isExpanded: true,
                 items: [
                   const DropdownMenuItem<int?>(
                     value: null,
@@ -193,7 +194,10 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
                   ),
                   ...entidades.map((e) => DropdownMenuItem<int?>(
                         value: e.id,
-                        child: Text('${e.nomeEntidade} (${e.linhaEntidade})'),
+                        child: Text(
+                          '${e.nomeEntidade} (${e.linhaEntidade})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       )),
                 ],
                 onChanged: (value) {
@@ -243,6 +247,10 @@ class _PontoFormDialogState extends State<PontoFormDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isFormValid ? Theme.of(context).colorScheme.primaryContainer : null,
+            foregroundColor: _isFormValid ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+          ),
           onPressed: (_isSaving || !_isFormValid) ? null : _salvar,
           child: _isSaving
               ? const SizedBox(

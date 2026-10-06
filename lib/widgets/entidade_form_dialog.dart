@@ -75,6 +75,8 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
 
     final linhaExistente = widget.entidade?.linhaEntidade ?? '';
     _selectedLinha = _mapearParaChaveUpper(linhaExistente);
+
+    _nomeController.addListener(_validateForm);
   }
 
   String? _mapearParaChaveUpper(String texto) {
@@ -96,11 +98,20 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
     return null;
   }
 
+  void _validateForm() {
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _nomeController.removeListener(_validateForm);
     _nomeController.dispose();
     _falangeController.dispose();
     super.dispose();
+  }
+
+  bool get _isFormValid {
+    return _nomeController.text.trim().isNotEmpty && _selectedLinha != null;
   }
 
   Future<void> _salvar() async {
@@ -233,7 +244,11 @@ class _EntidadeFormDialogState extends State<EntidadeFormDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _isSaving ? null : _salvar,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _isFormValid ? Theme.of(context).colorScheme.primaryContainer : null,
+            foregroundColor: _isFormValid ? Theme.of(context).colorScheme.onPrimaryContainer : null,
+          ),
+          onPressed: (_isSaving || !_isFormValid) ? null : _salvar,
           child: _isSaving
               ? const SizedBox(
                   width: 20,
