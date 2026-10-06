@@ -25,6 +25,7 @@ class PlaylistDetailScreen extends StatefulWidget {
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   late final ScrollController _scrollController;
   final TextEditingController _searchController = TextEditingController();
+  late AudioPlayerProvider _audioProvider;
   bool _showScrollToTop = false;
   final Set<int> _expandedPontoIds = {};
   bool _isWakelockEnabled = true;
@@ -41,6 +42,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _audioProvider = context.read<AudioPlayerProvider>();
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _enableWakelock();
@@ -185,6 +187,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchController.dispose();
+
+    if (!_audioProvider.isPlaying) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _audioProvider.parar();
+      });
+    }
+
     super.dispose();
   }
 
