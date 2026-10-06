@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/entidade.dart';
+import '../models/sync_event.dart';
 import '../services/entidade_service.dart';
 
 class EntidadesProvider extends ChangeNotifier {
@@ -104,6 +105,34 @@ class EntidadesProvider extends ChangeNotifier {
     _linhasFiltro.clear();
     _falangesFiltro.clear();
     await carregarEntidades();
+  }
+
+  /// Método para sincronizar com eventos do WebSocket/STOMP
+  void sincronizar(SyncEvent event) {
+    if (event.acao == "CREATE") {
+      final entidade = Entidade.fromJson(event.dados as Map<String, dynamic>);
+      final index = _todasEntidades.indexWhere((e) => e.id == entidade.id);
+      if (index == -1) {
+        _todasEntidades.add(entidade);
+      }
+    } else if (event.acao == "UPDATE") {
+      final entidade = Entidade.fromJson(event.dados as Map<String, dynamic>);
+      final index = _todasEntidades.indexWhere((e) => e.id == entidade.id);
+      if (index != -1) {
+        _todasEntidades[index] = entidade;
+      } else {
+        _todasEntidades.add(entidade);
+      }
+    } else if (event.acao == "DELETE") {
+      final id = event.idParaDeletar;
+      if (id != null) {
+        _todasEntidades.removeWhere((e) => e.id == id);
+      }
+    }
+    
+    // Reaplicar filtros para atualizar a lista visível
+    _aplicarFiltrosLocais(_todasEntidades);
+    notifyListeners();
   }
 
   Future<bool> cadastrarEntidade(Entidade entidade) async {
