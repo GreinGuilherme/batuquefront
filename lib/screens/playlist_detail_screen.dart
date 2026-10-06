@@ -29,6 +29,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   bool _showScrollToTop = false;
   final Set<int> _expandedPontoIds = {};
   bool _isWakelockEnabled = true;
+  double _letrasFontScale = 1.0;
+
+  void _increaseFontSize() {
+    setState(() {
+      if (_letrasFontScale < 2.5) _letrasFontScale += 0.1;
+    });
+  }
+
+  void _decreaseFontSize() {
+    setState(() {
+      if (_letrasFontScale > 0.5) _letrasFontScale -= 0.1;
+    });
+  }
 
   bool _isFilterExpanded = false;
   Set<String> _tempSelectedLinhas = {};
@@ -423,16 +436,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 const SizedBox(width: 8),
                 SizedBox(
                   height: 40,
-                  child: OutlinedButton.icon(
+                  child: OutlinedButton(
                     onPressed: _toggleFilterPanel,
-                    icon: Icon(
-                      _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                      size: 18,
-                    ),
-                    label: Text(
-                      totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
                     style: OutlinedButton.styleFrom(
                       visualDensity: VisualDensity.compact,
                       shape: RoundedRectangleBorder(
@@ -441,6 +446,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
                           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
                           : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -631,16 +650,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         child: const Text('Resetar seleções'),
                       ),
                       const SizedBox(width: 8),
-                      FilledButton.icon(
+                      FilledButton(
                         onPressed: _applyFilter,
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: const Text('Aplicar Filtro'),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_rounded, size: 16),
+                            SizedBox(width: 4),
+                            Text('Aplicar Filtro'),
+                          ],
                         ),
                       ),
                     ],
@@ -670,14 +695,20 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    TextButton.icon(
+                    TextButton(
                       onPressed: () => _showAddPontoModal(context, playlist),
-                      icon: const Icon(Icons.add_rounded, size: 20),
-                      label: const Text('Adicionar'),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_rounded, size: 20),
+                          SizedBox(width: 2),
+                          Text('Adicionar'),
+                        ],
                       ),
                     ),
                   ],
@@ -687,33 +718,67 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      OutlinedButton.icon(
+                      OutlinedButton(
+                        onPressed: playlist.pontos.isEmpty ? null : _decreaseFontSize,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        child: const Text('A-'),
+                      ),
+                      const SizedBox(width: 4),
+                      OutlinedButton(
+                        onPressed: playlist.pontos.isEmpty ? null : _increaseFontSize,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        child: const Text('A+'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
                         onPressed: playlist.pontos.isEmpty
                             ? null
                             : () => _expandAll(playlist.pontos),
-                        icon: const Icon(Icons.unfold_more_rounded, size: 18),
-                        label: const Text('Expandir todos'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           textStyle: const TextStyle(fontSize: 12),
                         ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.unfold_more_rounded, size: 18),
+                            SizedBox(width: 4),
+                            Text('Expandir todos'),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
-                        icon: const Icon(Icons.unfold_less_rounded, size: 18),
-                        label: const Text('Recolher todos'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           textStyle: const TextStyle(fontSize: 12),
                         ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.unfold_less_rounded, size: 18),
+                            SizedBox(width: 4),
+                            Text('Recolher todos'),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: playlist.pontos.isEmpty ? null : () {
                           Navigator.push(
                             context,
@@ -725,28 +790,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             ),
                           );
                         },
-                        icon: const Icon(Icons.slideshow_rounded, size: 18),
-                        label: const Text('Apresentar'),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           textStyle: const TextStyle(fontSize: 12),
                         ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.slideshow_rounded, size: 18),
+                            SizedBox(width: 4),
+                            Text('Apresentar'),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
+                      OutlinedButton(
                         onPressed: _toggleWakelock,
-                        icon: Icon(
-                          _isWakelockEnabled
-                              ? Icons.screen_lock_portrait_rounded
-                              : Icons.lock_open_rounded,
-                          size: 18,
-                          color: _isWakelockEnabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                        ),
-                        label: Text(
-                          _isWakelockEnabled ? 'Tela acesa' : 'Bloqueio auto',
-                        ),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           minimumSize: Size.zero,
@@ -755,6 +816,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           backgroundColor: _isWakelockEnabled
                               ? colorScheme.primaryContainer.withValues(alpha: 0.5)
                               : null,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _isWakelockEnabled
+                                  ? Icons.screen_lock_portrait_rounded
+                                  : Icons.lock_open_rounded,
+                              size: 18,
+                              color: _isWakelockEnabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _isWakelockEnabled ? 'Tela acesa' : 'Bloqueio auto',
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -788,10 +865,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           style: theme.textTheme.bodyLarge,
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton.icon(
+                        ElevatedButton(
                           onPressed: () => _showAddPontoModal(context, playlist),
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Adicionar Pontos'),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.add_rounded),
+                              SizedBox(width: 4),
+                              Text('Adicionar Pontos'),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -819,10 +902,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           style: theme.textTheme.bodyLarge,
                         ),
                         const SizedBox(height: 16),
-                        OutlinedButton.icon(
+                        OutlinedButton(
                           onPressed: _clearFilters,
-                          icon: const Icon(Icons.close_rounded),
-                          label: const Text('Limpar Filtros'),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.close_rounded),
+                              SizedBox(width: 4),
+                              Text('Limpar Filtros'),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -1106,6 +1195,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ponto.pontoLetra,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             height: 1.4,
+                            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14.0) * _letrasFontScale,
                           ),
                         )
                       : Text(
@@ -1113,6 +1203,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontStyle: FontStyle.italic,
                             color: theme.hintColor,
+                            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14.0) * _letrasFontScale,
                           ),
                         ),
                 ],
