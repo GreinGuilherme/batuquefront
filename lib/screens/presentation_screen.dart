@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../models/ponto_cantado.dart';
 import '../models/ponto_item.dart';
@@ -14,13 +15,14 @@ class PresentationScreen extends StatefulWidget {
   State<PresentationScreen> createState() => _PresentationScreenState();
 }
 
-class _PresentationScreenState extends State<PresentationScreen> {
+class _PresentationScreenState extends State<PresentationScreen> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   bool _isPlaying = false;
   double _scrollSpeed = 1.0;
   double _fontSize = 24.0;
-  Timer? _scrollTimer;
   Timer? _manualScrollTimer;
+  late Ticker _ticker;
+  Duration _lastElapsed = Duration.zero;
 
   bool _isManualScrolling = false;
 
@@ -30,6 +32,25 @@ class _PresentationScreenState extends State<PresentationScreen> {
     // Esconde a barra inferior de navegação e a barra de status. 
     // Quando deslizado, aparece por alguns segundos e volta a esconder.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    _ticker = createTicker((elapsed) {
+      if (!_isManualScrolling && _scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
+        final double dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
+        _lastElapsed = elapsed;
+        
+        // A escala antiga era de 10 pixels por segundo em velocidade 1.0 (0.5 pixels a cada 50ms).
+        double nextOffset = _scrollController.offset + (_scrollSpeed * 10.0 * dt);
+        
+        if (nextOffset >= _scrollController.position.maxScrollExtent) {
+          _stopAutoScroll();
+          setState(() => _isPlaying = false);
+        } else {
+          _scrollController.jumpTo(nextOffset);
+        }
+      } else {
+        _lastElapsed = elapsed;
+      }
+    });
   }
 
   void _togglePlayPause() {
@@ -44,30 +65,29 @@ class _PresentationScreenState extends State<PresentationScreen> {
   }
 
   void _startAutoScroll() {
-    _scrollTimer?.cancel();
-    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!_isManualScrolling && _scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
-        double nextOffset = _scrollController.offset + (_scrollSpeed * 0.5); // Adjust multiplier for slower min speed
-        if (nextOffset >= _scrollController.position.maxScrollExtent) {
-          _stopAutoScroll();
-          setState(() => _isPlaying = false);
-        } else {
-          _scrollController.jumpTo(nextOffset);
-        }
-      }
-    });
+    _lastElapsed = Duration.zero;
+    if (!_ticker.isTicking) {
+      _ticker.start();
+    }
   }
 
   void _stopAutoScroll() {
-    _scrollTimer?.cancel();
+    if (_ticker.isTicking) {
+      _ticker.stop();
+    }
   }
 
   void _startManualScroll(bool up) {
     _isManualScrolling = true;
     _manualScrollTimer?.cancel();
-    _manualScrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    
+    // Calcula quantos pixels avançar/retroceder por frame (ex: a 60 fps)
+    // 300 pixels por segundo -> 300 / 60 = 5 pixels por frame
+    const double pixelsPerSecond = 300.0;
+    
+    _manualScrollTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) { // ~60fps
       if (_scrollController.hasClients) {
-        double offsetDelta = 15.0; // Velocidade do scroll manual (rebobinar/avançar)
+        double offsetDelta = pixelsPerSecond * 0.016; // 16ms
         double nextOffset = _scrollController.offset + (up ? -offsetDelta : offsetDelta);
         
         if (nextOffset <= 0) {
@@ -118,7 +138,7 @@ class _PresentationScreenState extends State<PresentationScreen> {
 
   @override
   void dispose() {
-    _scrollTimer?.cancel();
+    _ticker.dispose();
     _manualScrollTimer?.cancel();
     _scrollController.dispose();
     // Restaura a interface normal quando sair da tela de apresentação
@@ -148,7 +168,7 @@ class _PresentationScreenState extends State<PresentationScreen> {
                   child: Slider(
                     value: _scrollSpeed,
                     min: 0.05, // Menor valor para rolagem bem mais lenta
-                    max: 5.0,
+                    max: 8.0,  // Velocidade máxima aumentada para ser mais rápida
                     onChanged: (value) {
                       setState(() {
                         _scrollSpeed = value;

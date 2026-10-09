@@ -66,6 +66,7 @@ class AuthService {
         String rawNome = '';
         String userEmail = email;
         String userRole = 'USUARIO';
+        String? refreshToken;
 
         final responseBody = utf8.decode(response.bodyBytes).trim();
 
@@ -79,6 +80,9 @@ class AuthService {
           }
           if (data.containsKey('email') && data['email'].toString().contains('@')) {
             userEmail = data['email'].toString();
+          }
+          if (data.containsKey('refreshToken')) {
+            refreshToken = data['refreshToken'];
           }
         } else {
           token = responseBody.replaceAll('"', '');
@@ -128,7 +132,7 @@ class AuthService {
           email: userEmail,
           nome: nomeSanitizado,
           role: userRole,
-          refreshToken: data.containsKey('refreshToken') ? data['refreshToken'] : null,
+          refreshToken: refreshToken,
         );
 
         return {
