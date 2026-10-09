@@ -128,6 +128,7 @@ class AuthService {
           email: userEmail,
           nome: nomeSanitizado,
           role: userRole,
+          refreshToken: data.containsKey('refreshToken') ? data['refreshToken'] : null,
         );
 
         return {
@@ -318,12 +319,56 @@ class AuthService {
     return prefix[0].toUpperCase() + prefix.substring(1);
   }
 
+  /// Rota para renovar o token. O Backend deve receber o refresh_token e devolver um novo access_token
+  Future<bool> refreshTokenSilently() async {
+    final prefs = await SharedPreferences.getInstance();
+    final refreshToken = prefs.getString('refresh_token');
+
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return false; // Não há refresh token para usar
+    }
+
+    try {
+      final uri = _getUri('/auth/refresh'); // Rota a ser criada no Spring Boot
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Accept': 'application/json, text/plain',
+          'x-app-batuque': 'GiraSegura2026',
+        },
+        body: jsonEncode({'refreshToken': refreshToken}),
+      ).timeout(ApiConfig.timeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        
+        final newToken = data['token'] ?? data['accessToken'];
+        final newRefreshToken = data['refreshToken']; // Opcional, se o back mandar um novo
+
+        if (newToken != null && newToken.toString().isNotEmpty) {
+           await prefs.setString(_tokenKey, newToken);
+           await prefs.setString(_cookieKey, 'jwt=$newToken');
+           
+           if (newRefreshToken != null && newRefreshToken.toString().isNotEmpty) {
+             await prefs.setString('refresh_token', newRefreshToken);
+           }
+           return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<void> _salvarSessao({
     required String token,
     String? cookie,
     required String email,
     required String nome,
     required String role,
+    String? refreshToken,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
@@ -331,6 +376,9 @@ class AuthService {
     await prefs.setString(_userEmailKey, email);
     await prefs.setString(_userNameKey, nome);
     await prefs.setString(_userRoleKey, role);
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await prefs.setString('refresh_token', refreshToken);
+    }
   }
 
   Future<String?> getSavedToken() async {
@@ -381,6 +429,7 @@ class AuthService {
     await prefs.remove(_userEmailKey);
     await prefs.remove(_userNameKey);
     await prefs.remove(_userRoleKey);
+    await prefs.remove('refresh_token');
   }
 
   /// Retorna os headers com Authorization e Cookie apenas para chamadas autenticadas

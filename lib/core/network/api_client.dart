@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart'; // Para kDebugMode
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_config.dart'; // Importando seu arquivo de configuração
+import '../../services/auth_service.dart';
 
 class ApiClient {
   late final Dio _dio;
@@ -46,13 +47,44 @@ class ApiClient {
           // Processamento global de respostas de sucesso pode ser feito aqui
           return handler.next(response);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
           // Tratamento global de erros
           if (e.response?.statusCode == 403) {
             debugPrint('Erro 403: Bloqueio do Nginx ou Falta de Permissão.');
           } else if (e.response?.statusCode == 401) {
-            debugPrint('Erro 401: Token expirado ou não autorizado.');
-            // Lógica de logout ou refresh token entraria aqui
+            debugPrint('Erro 401: Token expirado. Tentando Refresh Token...');
+            
+            // Impede requests infinitos em loop (caso o refresh dê 401)
+            if (e.requestOptions.path.contains('/auth/refresh')) {
+              return handler.next(e);
+            }
+
+            final authService = AuthService();
+            bool success = await authService.refreshTokenSilently();
+
+            if (success) {
+              debugPrint('Refresh Token realizado com sucesso. Refazendo a requisição original...');
+              try {
+                // Pega o novo token salvo
+                final prefs = await SharedPreferences.getInstance();
+                final newToken = prefs.getString('jwt_token');
+
+                // Clona a requisição original que falhou com erro 401
+                final options = e.requestOptions;
+                options.headers['Authorization'] = 'Bearer $newToken';
+                
+                // Realiza a requisição original de novo
+                final cloneReq = await _dio.fetch(options);
+                return handler.resolve(cloneReq);
+              } catch (cloneError) {
+                return handler.next(e);
+              }
+            } else {
+              debugPrint('Falha ao tentar renovar o token. O usuário será deslogado.');
+              // Aqui idealmente deveríamos chamar o AuthProvider para atualizar o estado da tela,
+              // mas para não criar uma dependência circular, apenas limpamos o cache local.
+              await authService.logout();
+            }
           }
           return handler.next(e);
         },

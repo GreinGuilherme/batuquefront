@@ -46,10 +46,21 @@ class AuthProvider extends ChangeNotifier {
           _userRole = userData['role'];
           _isLoggedIn = true;
         } else {
-          // Token expirado: limpa a sessão
-          await _authService.logout();
-          _isLoggedIn = false;
-          _token = null;
+          // Tenta renovar o token expirado na inicialização
+          bool refreshed = await _authService.refreshTokenSilently();
+          if (refreshed) {
+             final updatedUserData = await _authService.getSavedUserData();
+             _token = updatedUserData['token'];
+             _userEmail = updatedUserData['email'];
+             _userName = updatedUserData['nome'];
+             _userRole = updatedUserData['role'];
+             _isLoggedIn = true;
+          } else {
+            // Se o refresh falhar, limpa a sessão
+            await _authService.logout();
+            _isLoggedIn = false;
+            _token = null;
+          }
         }
       } else {
         _isLoggedIn = false;
