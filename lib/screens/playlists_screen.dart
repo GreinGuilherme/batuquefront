@@ -520,59 +520,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
 
                             return Card(
                               margin: const EdgeInsets.only(bottom: 6),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                leading: CircleAvatar(
-                                  radius: 18,
-                                  backgroundColor: colorScheme.primaryContainer,
-                                  foregroundColor: colorScheme.onPrimaryContainer,
-                                  child: const Icon(Icons.queue_music_rounded, size: 20),
-                                ),
-                                title: Text(
-                                  playlist.nomePlaylist,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  '${playlist.pontos.length} ponto(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
-                                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
-                                ),
-                                trailing: canEdit ? PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_vert_rounded, size: 18),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onSelected: (value) {
-                                    if (value == 'edit') {
-                                      PlaylistFormDialog.show(context, playlist: playlist);
-                                    } else if (value == 'delete') {
-                                      _confirmDelete(context, playlist);
-                                    }
-                                  },
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: 'edit',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.edit_outlined, size: 18),
-                                          SizedBox(width: 8),
-                                          Text('Editar Nome', style: TextStyle(fontSize: 13)),
-                                        ],
-                                      ),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'delete',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                          SizedBox(width: 8),
-                                          Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ) : null,
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
                                 onTap: () {
                                   if (playlist.id != null) {
                                     Navigator.of(context).push(
@@ -582,6 +531,82 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                                     );
                                   }
                                 },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: colorScheme.primaryContainer,
+                                        foregroundColor: colorScheme.onPrimaryContainer,
+                                        child: const Icon(Icons.queue_music_rounded, size: 18),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              playlist.nomePlaylist,
+                                              style: theme.textTheme.titleMedium?.copyWith(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${playlist.pontos.length} ponto(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
+                                              style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (canEdit)
+                                        PopupMenuButton<String>(
+                                          icon: const Icon(Icons.more_vert_rounded, size: 18),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onSelected: (value) {
+                                            if (value == 'edit') {
+                                              PlaylistFormDialog.show(context, playlist: playlist);
+                                            } else if (value == 'delete') {
+                                              _confirmDelete(context, playlist);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.edit_outlined, size: 18),
+                                                  SizedBox(width: 8),
+                                                  Text('Editar Nome', style: TextStyle(fontSize: 13)),
+                                                ],
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                                  SizedBox(width: 8),
+                                                  Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      if (!canEdit)
+                                        Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 18,
+                                          color: colorScheme.outline,
+                                        ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             );
                           },

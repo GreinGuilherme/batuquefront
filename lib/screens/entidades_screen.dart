@@ -503,13 +503,10 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                                 itemCount: entidades.length,
                                 itemBuilder: (context, index) {
                                   final entidade = entidades[index];
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: EntidadeCard(
-                                      entidade: entidade,
-                                      onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
-                                      onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
-                                    ),
+                                  return EntidadeCard(
+                                    entidade: entidade,
+                                    onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
+                                    onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
                                   );
                                 },
                               );

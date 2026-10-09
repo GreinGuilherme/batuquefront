@@ -38,11 +38,12 @@ class EntidadeCard extends StatelessWidget {
     final temLinha = entidade.linhaEntidade.trim().isNotEmpty;
 
     return Card(
+      margin: const EdgeInsets.only(bottom: 6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -57,7 +58,7 @@ class EntidadeCard extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

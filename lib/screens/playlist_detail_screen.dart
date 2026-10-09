@@ -1198,7 +1198,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
     return Card(
       key: ValueKey('item_${ponto.id}_$index'),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1211,7 +1211,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               }
             },
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1247,6 +1247,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                 ? colorScheme.primary
                                 : null,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         // Espaçamento reduzido
                         Row(
@@ -1258,7 +1260,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   color: colorScheme.onSurfaceVariant,
                                   fontSize: 12,
                                 ),
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

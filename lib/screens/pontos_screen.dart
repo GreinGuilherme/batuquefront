@@ -545,35 +545,32 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
 
                             final isPlaying = audioProvider.currentPonto?.id == ponto.id && audioProvider.isPlaying;
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: PontoCard(
-                                ponto: ponto,
-                                entidade: entidadeVinculada,
-                                isPlaying: isPlaying,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => PontoDetailScreen(ponto: ponto),
-                                    ),
-                                  );
-                                },
-                                onPlayTap: () {
-                                  if (isPlaying) {
-                                    audioProvider.pausar();
-                                  } else if (audioProvider.currentPonto?.id == ponto.id && audioProvider.isPaused) {
-                                    audioProvider.retomar();
-                                  } else {
-                                    audioProvider.tocarPonto(ponto);
-                                  }
-                                },
-                                onEdit: canEdit ? () => PontoFormDialog.show(context, ponto: ponto) : null,
-                                onDelete: canEdit ? () => _confirmDelete(
-                                  context,
-                                  ponto,
-                                  nomeEntidade: entidadeVinculada?.nomeEntidade,
-                                ) : null,
-                              ),
+                            return PontoCard(
+                              ponto: ponto,
+                              entidade: entidadeVinculada,
+                              isPlaying: isPlaying,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PontoDetailScreen(ponto: ponto),
+                                  ),
+                                );
+                              },
+                              onPlayTap: () {
+                                if (isPlaying) {
+                                  audioProvider.pausar();
+                                } else if (audioProvider.currentPonto?.id == ponto.id && audioProvider.isPaused) {
+                                  audioProvider.retomar();
+                                } else {
+                                  audioProvider.tocarPonto(ponto);
+                                }
+                              },
+                              onEdit: canEdit ? () => PontoFormDialog.show(context, ponto: ponto) : null,
+                              onDelete: canEdit ? () => _confirmDelete(
+                                context,
+                                ponto,
+                                nomeEntidade: entidadeVinculada?.nomeEntidade,
+                              ) : null,
                             );
                           },
                         ),
