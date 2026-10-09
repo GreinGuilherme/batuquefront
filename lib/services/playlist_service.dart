@@ -47,9 +47,16 @@ class PlaylistService {
   }
 
   Future<List<Playlist>> filtrarPlaylists(String termo) async {
-    final uri = Uri.parse(
-      '${ApiConfig.baseUrl}/playlist/buscar/filtro?termo=${Uri.encodeComponent(termo)}',
-    );
+    final queryParams = <String, String>{};
+    if (termo.isNotEmpty) {
+      queryParams['playlistNome'] = termo;
+      queryParams['nomePonto'] = termo;
+      queryParams['pontoLetra'] = termo;
+      queryParams['nomeEntidade'] = termo;
+    }
+
+    final uri = Uri.parse('${ApiConfig.baseUrl}/playlist/buscar/filtrar')
+        .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 
     final response = await _client.get(uri, headers: headers).timeout(ApiConfig.timeout);

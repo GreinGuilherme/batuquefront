@@ -49,7 +49,8 @@ class PontoService {
   Future<List<PontoCantado>> filtrarPontos({String? termo, int? entidadeId}) async {
     final queryParams = <String, String>{};
     if (termo != null && termo.isNotEmpty) {
-      queryParams['termo'] = termo;
+      queryParams['nomePonto'] = termo;
+      queryParams['pontoLetra'] = termo;
     }
     if (entidadeId != null) {
       queryParams['entidadeId'] = entidadeId.toString();
