@@ -5,6 +5,7 @@ import '../models/playlist.dart';
 import '../models/entidade.dart';
 import '../providers/playlists_provider.dart';
 import '../providers/entidades_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/playlist_form_dialog.dart';
 import 'playlist_detail_screen.dart';
 
@@ -120,10 +121,13 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
     super.build(context);
     final provider = context.watch<PlaylistsProvider>();
     final entidadesProvider = context.watch<EntidadesProvider>();
+    final authProvider = context.watch<AuthProvider>();
     final todasPlaylists = provider.playlists;
     final entidades = entidadesProvider.todasEntidades;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    
+    final canEdit = authProvider.isLoggedIn && (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
     // Linhas disponíveis
     final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
@@ -207,24 +211,26 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: () async {
-                    await PlaylistFormDialog.show(context);
-                    if (context.mounted) {
-                      context.read<PlaylistsProvider>().carregarPlaylists();
-                    }
-                  },
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                if (canEdit) ...[
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: () async {
+                      await PlaylistFormDialog.show(context);
+                      if (context.mounted) {
+                        context.read<PlaylistsProvider>().carregarPlaylists();
+                      }
+                    },
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: const Size(38, 38),
+                      padding: EdgeInsets.zero,
                     ),
-                    minimumSize: const Size(38, 38),
-                    padding: EdgeInsets.zero,
+                    tooltip: 'Nova Playlist',
                   ),
-                  tooltip: 'Nova Playlist',
-                ),
+                ],
               ],
             ),
           ),
@@ -533,7 +539,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                                   '${playlist.pontos.length} ponto(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
                                   style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
                                 ),
-                                trailing: PopupMenuButton<String>(
+                                trailing: canEdit ? PopupMenuButton<String>(
                                   icon: const Icon(Icons.more_vert_rounded, size: 18),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
@@ -566,7 +572,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                                       ),
                                     ),
                                   ],
-                                ),
+                                ) : null,
                                 onTap: () {
                                   if (playlist.id != null) {
                                     Navigator.of(context).push(

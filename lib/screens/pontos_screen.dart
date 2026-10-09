@@ -5,6 +5,7 @@ import '../models/entidade.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/audio_player_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/ponto_card.dart';
 import '../widgets/ponto_form_dialog.dart';
 import 'ponto_detail_screen.dart';
@@ -147,9 +148,12 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
     final pontosProvider = context.watch<PontosProvider>();
     final entidadesProvider = context.watch<EntidadesProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     final pontos = pontosProvider.pontos;
     final entidades = entidadesProvider.todasEntidades;
+
+    final canEdit = authProvider.isLoggedIn && (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
     // Calcular características disponíveis para o filtro em cascata
     final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
@@ -223,19 +227,21 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: () => PontoFormDialog.show(context),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                if (canEdit) ...[
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: () => PontoFormDialog.show(context),
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: const Size(38, 38),
+                      padding: EdgeInsets.zero,
                     ),
-                    minimumSize: const Size(38, 38),
-                    padding: EdgeInsets.zero,
+                    tooltip: 'Novo Ponto',
                   ),
-                  tooltip: 'Novo Ponto',
-                ),
+                ],
               ],
             ),
           ),
@@ -561,12 +567,12 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                                     audioProvider.tocarPonto(ponto);
                                   }
                                 },
-                                onEdit: () => PontoFormDialog.show(context, ponto: ponto),
-                                onDelete: () => _confirmDelete(
+                                onEdit: canEdit ? () => PontoFormDialog.show(context, ponto: ponto) : null,
+                                onDelete: canEdit ? () => _confirmDelete(
                                   context,
                                   ponto,
                                   nomeEntidade: entidadeVinculada?.nomeEntidade,
-                                ),
+                                ) : null,
                               ),
                             );
                           },

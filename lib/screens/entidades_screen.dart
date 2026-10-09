@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/entidade.dart';
 import '../providers/entidades_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/entidade_card.dart';
 import '../widgets/entidade_form_dialog.dart';
 
@@ -141,8 +142,11 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
   Widget build(BuildContext context) {
     super.build(context);
     final provider = context.watch<EntidadesProvider>();
+    final authProvider = context.watch<AuthProvider>();
     final entidades = provider.entidades;
     final todasEntidades = provider.todasEntidades;
+    
+    final canEdit = authProvider.isLoggedIn && (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
     // Calcular características disponíveis para o filtro em cascata
     final todasLinhas = todasEntidades
@@ -210,19 +214,21 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: () => EntidadeFormDialog.show(context),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                if (canEdit) ...[
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: () => EntidadeFormDialog.show(context),
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: const Size(38, 38),
+                      padding: EdgeInsets.zero,
                     ),
-                    minimumSize: const Size(38, 38),
-                    padding: EdgeInsets.zero,
+                    tooltip: 'Nova Entidade',
                   ),
-                  tooltip: 'Nova Entidade',
-                ),
+                ],
               ],
             ),
           ),
@@ -484,8 +490,8 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                                   final entidade = entidades[index];
                                   return EntidadeCard(
                                     entidade: entidade,
-                                    onEdit: () => EntidadeFormDialog.show(context, entidade: entidade),
-                                    onDelete: () => _confirmDelete(context, entidade),
+                                    onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
+                                    onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
                                   );
                                 },
                               );
@@ -501,8 +507,8 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                                     padding: const EdgeInsets.only(bottom: 6),
                                     child: EntidadeCard(
                                       entidade: entidade,
-                                      onEdit: () => EntidadeFormDialog.show(context, entidade: entidade),
-                                      onDelete: () => _confirmDelete(context, entidade),
+                                      onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
+                                      onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
                                     ),
                                   );
                                 },

@@ -6,6 +6,7 @@ import '../models/entidade.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/audio_player_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/ponto_form_dialog.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 
@@ -103,6 +104,8 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
     final entidadesProvider = context.watch<EntidadesProvider>();
     final pontosProvider = context.watch<PontosProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
+    final authProvider = context.watch<AuthProvider>();
+    final canEdit = authProvider.isLoggedIn && (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
     PontoCantado ponto = widget.ponto;
     final pontoAtualizado = pontosProvider.pontos.cast<PontoCantado?>().firstWhere(
@@ -131,7 +134,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(ponto.nomePonto),
-        actions: [
+        actions: canEdit ? [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => PontoFormDialog.show(context, ponto: ponto),
@@ -142,7 +145,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
             onPressed: () => _confirmDelete(context, nomeEntidade: entidade?.nomeEntidade),
             tooltip: 'Deletar Ponto',
           ),
-        ],
+        ] : null,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
