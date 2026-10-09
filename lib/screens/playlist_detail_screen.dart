@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+
 import '../models/entidade.dart';
 import '../models/playlist.dart';
 import '../models/ponto_item.dart';
@@ -8,6 +9,7 @@ import '../providers/playlists_provider.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/audio_player_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/playlist_form_dialog.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 import 'ponto_detail_screen.dart';
@@ -64,13 +66,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       if (!mounted) return;
       final playlistsProvider = context.read<PlaylistsProvider>();
       final audioProvider = context.read<AudioPlayerProvider>();
-      
+
       Playlist? playlist;
       try {
-        playlist = playlistsProvider.playlists.firstWhere((p) => p.id == widget.playlistId);
+        playlist = playlistsProvider.playlists.firstWhere(
+          (p) => p.id == widget.playlistId,
+        );
       } catch (_) {}
-      
-      if (playlist != null && audioProvider.currentPlaylist?.id != playlist.id) {
+
+      if (playlist != null &&
+          audioProvider.currentPlaylist?.id != playlist.id) {
         audioProvider.prepararPlaylist(playlist, minimizado: true);
       }
     });
@@ -261,14 +266,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   nav.pop();
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text('Playlist "${playlist.nomePlaylist}" deletada com sucesso!'),
+                      content: Text(
+                        'Playlist "${playlist.nomePlaylist}" deletada com sucesso!',
+                      ),
                       backgroundColor: Colors.green,
                     ),
                   );
                 } else {
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(provider.errorMessage ?? 'Erro ao deletar playlist "${playlist.nomePlaylist}".'),
+                      content: Text(
+                        provider.errorMessage ??
+                            'Erro ao deletar playlist "${playlist.nomePlaylist}".',
+                      ),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -289,10 +299,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final playlistsProvider = context.watch<PlaylistsProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
     final entidades = context.watch<EntidadesProvider>().todasEntidades;
+    final authProvider = context.watch<AuthProvider>();
+    final canEdit =
+        authProvider.isLoggedIn &&
+        (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
     Playlist? foundPlaylist;
     try {
-      foundPlaylist = playlistsProvider.playlists.firstWhere((p) => p.id == widget.playlistId);
+      foundPlaylist = playlistsProvider.playlists.firstWhere(
+        (p) => p.id == widget.playlistId,
+      );
     } catch (_) {
       foundPlaylist = null;
     }
@@ -306,18 +322,37 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final Playlist playlist = foundPlaylist;
 
     // Calcular características disponíveis para o filtro em cascata
-    final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
+    final todasLinhas =
+        entidades
+            .map((e) => e.linhaEntidade)
+            .where((l) => l.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     final entidadesNasLinhas = _tempSelectedLinhas.isEmpty
         ? entidades
-        : entidades.where((e) => _tempSelectedLinhas.contains(e.linhaEntidade)).toList();
-    final todasFalanges = entidadesNasLinhas.map((e) => e.falange).where((f) => f.isNotEmpty).toSet().toList()..sort();
+        : entidades
+              .where((e) => _tempSelectedLinhas.contains(e.linhaEntidade))
+              .toList();
+    final todasFalanges =
+        entidadesNasLinhas
+            .map((e) => e.falange)
+            .where((f) => f.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     final entidadesNasFalanges = _tempSelectedFalanges.isEmpty
         ? entidadesNasLinhas
-        : entidadesNasLinhas.where((e) => _tempSelectedFalanges.contains(e.falange)).toList();
+        : entidadesNasLinhas
+              .where((e) => _tempSelectedFalanges.contains(e.falange))
+              .toList();
 
-    final totalFiltrosAtivos = _appliedLinhas.length + _appliedFalanges.length + _appliedEntidades.length;
+    final totalFiltrosAtivos =
+        _appliedLinhas.length +
+        _appliedFalanges.length +
+        _appliedEntidades.length;
 
     // Filtragem dos pontos da playlist
     final searchQuery = _searchController.text.trim().toLowerCase();
@@ -340,7 +375,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
       // 2. Linha
       if (_appliedLinhas.isNotEmpty) {
-        if (eDoPonto == null || !_appliedLinhas.contains(eDoPonto.linhaEntidade)) {
+        if (eDoPonto == null ||
+            !_appliedLinhas.contains(eDoPonto.linhaEntidade)) {
           return false;
         }
       }
@@ -354,7 +390,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
       // 4. Entidades
       if (_appliedEntidades.isNotEmpty) {
-        if (ponto.entidadeId == null || !_appliedEntidades.contains(ponto.entidadeId)) {
+        if (ponto.entidadeId == null ||
+            !_appliedEntidades.contains(ponto.entidadeId)) {
           return false;
         }
       }
@@ -362,22 +399,26 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       return true;
     }).toList();
 
-    final temFiltroOuBuscaAtiva = searchQuery.isNotEmpty || totalFiltrosAtivos > 0;
+    final temFiltroOuBuscaAtiva =
+        searchQuery.isNotEmpty || totalFiltrosAtivos > 0;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(playlist.nomePlaylist),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => PlaylistFormDialog.show(context, playlist: playlist),
-            tooltip: 'Editar Playlist',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-            onPressed: () => _confirmDeletePlaylist(context, playlist),
-            tooltip: 'Deletar Playlist',
-          ),
+          if (canEdit) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () =>
+                  PlaylistFormDialog.show(context, playlist: playlist),
+              tooltip: 'Editar Playlist',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: () => _confirmDeletePlaylist(context, playlist),
+              tooltip: 'Deletar Playlist',
+            ),
+          ],
         ],
       ),
       floatingActionButton: _showScrollToTop
@@ -398,449 +439,548 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Search & Action Header
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: 40,
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar ponto na playlist...',
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear_rounded),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                              )
-                            : null,
-                        filled: true,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 40,
-                  child: OutlinedButton(
-                    onPressed: _toggleFilterPanel,
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
-                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                          : null,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
                     ),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                          size: 18,
+                        Expanded(
+                          child: SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Buscar ponto na playlist...',
+                                prefixIcon: const Icon(Icons.search_rounded),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear_rounded),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() {});
+                                        },
+                                      )
+                                    : null,
+                                filled: true,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              onChanged: (value) {
+                                setState(() {});
+                              },
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          height: 40,
+                          child: OutlinedButton(
+                            onPressed: _toggleFilterPanel,
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              backgroundColor:
+                                  _isFilterExpanded || totalFiltrosAtivos > 0
+                                  ? theme.colorScheme.primaryContainer
+                                        .withValues(alpha: 0.5)
+                                  : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isFilterExpanded
+                                      ? Icons.filter_alt_off_rounded
+                                      : Icons.filter_alt_rounded,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  totalFiltrosAtivos > 0
+                                      ? 'Filtros ($totalFiltrosAtivos)'
+                                      : 'Filtro',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          if (totalFiltrosAtivos > 0) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: _clearFilters,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  if (totalFiltrosAtivos > 0) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: theme.colorScheme.error,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            'Limpar filtros',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: theme.colorScheme.error,
-                              fontWeight: FontWeight.bold,
+                          InkWell(
+                            onTap: _clearFilters,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: theme.colorScheme.error,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Limpar filtros',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.error,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // Cascading Filter Panel (Collapsible)
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Filtro por Características',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => setState(() => _isFilterExpanded = false),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 12),
-
-                  // Nível 1: Linha
-                  Text(
-                    '1. Linha:',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: todasLinhas.map((linha) {
-                      final isSelected = _tempSelectedLinhas.contains(linha);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(linha, style: const TextStyle(fontSize: 12)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _tempSelectedLinhas.add(linha);
-                            } else {
-                              _tempSelectedLinhas.remove(linha);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Nível 2: Falange (Cascata)
-                  Text(
-                    '2. Falange:',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: todasFalanges.map((falange) {
-                      final isSelected = _tempSelectedFalanges.contains(falange);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(falange, style: const TextStyle(fontSize: 12)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _tempSelectedFalanges.add(falange);
-                            } else {
-                              _tempSelectedFalanges.remove(falange);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Nível 3: Entidades (Cascata)
-                  Text(
-                    '3. Entidades:',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: entidadesNasFalanges.map((entidade) {
-                      if (entidade.id == null) return const SizedBox.shrink();
-                      final isSelected = _tempSelectedEntidades.contains(entidade.id);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 12)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _tempSelectedEntidades.add(entidade.id!);
-                            } else {
-                              _tempSelectedEntidades.remove(entidade.id!);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 14),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _tempSelectedLinhas.clear();
-                            _tempSelectedFalanges.clear();
-                            _tempSelectedEntidades.clear();
-                          });
-                        },
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        child: const Text('Resetar seleções'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: _applyFilter,
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_rounded, size: 16),
-                            SizedBox(width: 4),
-                            Text('Aplicar Filtro'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 250),
-          ),
-
-          // Seção de Controle da Lista (Responsiva sem overflow)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Pontos na Sequência (${pontosFiltrados.length})',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _showAddPontoModal(context, playlist),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add_rounded, size: 20),
-                          SizedBox(width: 2),
-                          Text('Adicionar'),
                         ],
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 6),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      OutlinedButton(
-                        onPressed: playlist.pontos.isEmpty ? null : _decreaseFontSize,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        child: const Text('A-'),
+
+                  // Cascading Filter Panel (Collapsible)
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
                       ),
-                      const SizedBox(width: 4),
-                      OutlinedButton(
-                        onPressed: playlist.pontos.isEmpty ? null : _increaseFontSize,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant,
                         ),
-                        child: const Text('A+'),
                       ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: playlist.pontos.isEmpty
-                            ? null
-                            : () => _expandAll(playlist.pontos),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Filtro por Características',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () =>
+                                    setState(() => _isFilterExpanded = false),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 12),
+
+                          // Nível 1: Linha
+                          Text(
+                            '1. Linha:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: todasLinhas.map((linha) {
+                              final isSelected = _tempSelectedLinhas.contains(
+                                linha,
+                              );
+                              return FilterChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(
+                                  linha,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _tempSelectedLinhas.add(linha);
+                                    } else {
+                                      _tempSelectedLinhas.remove(linha);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Nível 2: Falange (Cascata)
+                          Text(
+                            '2. Falange:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: todasFalanges.map((falange) {
+                              final isSelected = _tempSelectedFalanges.contains(
+                                falange,
+                              );
+                              return FilterChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(
+                                  falange,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _tempSelectedFalanges.add(falange);
+                                    } else {
+                                      _tempSelectedFalanges.remove(falange);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Nível 3: Entidades (Cascata)
+                          Text(
+                            '3. Entidades:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: entidadesNasFalanges.map((entidade) {
+                              if (entidade.id == null)
+                                return const SizedBox.shrink();
+                              final isSelected = _tempSelectedEntidades
+                                  .contains(entidade.id);
+                              return FilterChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(
+                                  entidade.nomeEntidade,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _tempSelectedEntidades.add(entidade.id!);
+                                    } else {
+                                      _tempSelectedEntidades.remove(
+                                        entidade.id!,
+                                      );
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 14),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _tempSelectedLinhas.clear();
+                                    _tempSelectedFalanges.clear();
+                                    _tempSelectedEntidades.clear();
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                child: const Text('Resetar seleções'),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                onPressed: _applyFilter,
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_rounded, size: 16),
+                                    SizedBox(width: 4),
+                                    Text('Aplicar Filtro'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    crossFadeState: _isFilterExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 250),
+                  ),
+
+                  // Seção de Controle da Lista (Responsiva sem overflow)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(Icons.unfold_more_rounded, size: 18),
-                            SizedBox(width: 4),
-                            Text('Expandir todos'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: playlist.pontos.isEmpty ? null : _collapseAll,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.unfold_less_rounded, size: 18),
-                            SizedBox(width: 4),
-                            Text('Recolher todos'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: playlist.pontos.isEmpty ? null : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PresentationScreen(
-                                pontos: playlist.pontos,
-                                title: 'Apresentação - ${playlist.nomePlaylist}',
+                            Expanded(
+                              child: Text(
+                                'Pontos na Sequência (${pontosFiltrados.length})',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.slideshow_rounded, size: 18),
-                            SizedBox(width: 4),
-                            Text('Apresentar'),
+                            if (canEdit)
+                              TextButton(
+                                onPressed: () =>
+                                    _showAddPontoModal(context, playlist),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_rounded, size: 20),
+                                    SizedBox(width: 2),
+                                    Text('Adicionar'),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: _toggleWakelock,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          textStyle: const TextStyle(fontSize: 12),
-                          backgroundColor: _isWakelockEnabled
-                              ? colorScheme.primaryContainer.withValues(alpha: 0.5)
-                              : null,
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              OutlinedButton(
+                                onPressed: playlist.pontos.isEmpty
+                                    ? null
+                                    : _decreaseFontSize,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                child: const Text('A-'),
+                              ),
+                              const SizedBox(width: 4),
+                              OutlinedButton(
+                                onPressed: playlist.pontos.isEmpty
+                                    ? null
+                                    : _increaseFontSize,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                child: const Text('A+'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: playlist.pontos.isEmpty
+                                    ? null
+                                    : () => _expandAll(playlist.pontos),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.unfold_more_rounded, size: 18),
+                                    SizedBox(width: 4),
+                                    Text('Expandir todos'),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: playlist.pontos.isEmpty
+                                    ? null
+                                    : _collapseAll,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.unfold_less_rounded, size: 18),
+                                    SizedBox(width: 4),
+                                    Text('Recolher todos'),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: playlist.pontos.isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                PresentationScreen(
+                                                  pontos: playlist.pontos,
+                                                  title:
+                                                      'Apresentação - ${playlist.nomePlaylist}',
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.slideshow_rounded, size: 18),
+                                    SizedBox(width: 4),
+                                    Text('Apresentar'),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: _toggleWakelock,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                  backgroundColor: _isWakelockEnabled
+                                      ? colorScheme.primaryContainer.withValues(
+                                          alpha: 0.5,
+                                        )
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _isWakelockEnabled
+                                          ? Icons.screen_lock_portrait_rounded
+                                          : Icons.lock_open_rounded,
+                                      size: 18,
+                                      color: _isWakelockEnabled
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _isWakelockEnabled
+                                          ? 'Tela acesa'
+                                          : 'Bloqueio auto',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              _isWakelockEnabled
-                                  ? Icons.screen_lock_portrait_rounded
-                                  : Icons.lock_open_rounded,
-                              size: 18,
-                              color: _isWakelockEnabled ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _isWakelockEnabled ? 'Tela acesa' : 'Bloqueio auto',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
                 ],
               ),
             ),
@@ -860,22 +1000,27 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Sua playlist está vazia.\nAdicione pontos para organizar sua gira.',
+                          canEdit
+                              ? 'Sua playlist está vazia.\nAdicione pontos para organizar sua gira.'
+                              : 'Esta playlist está vazia.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyLarge,
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => _showAddPontoModal(context, playlist),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.add_rounded),
-                              SizedBox(width: 4),
-                              Text('Adicionar Pontos'),
-                            ],
+                        if (canEdit) ...[
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () =>
+                                _showAddPontoModal(context, playlist),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.add_rounded),
+                                SizedBox(width: 4),
+                                Text('Adicionar Pontos'),
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -920,40 +1065,81 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               )
             else if (temFiltroOuBuscaAtiva)
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = pontosFiltrados[index];
-                      return _buildPontoCard(
-                        context: context,
-                        item: item,
-                        index: index,
-                        playlist: playlist,
-                        entidades: entidades,
-                        audioProvider: audioProvider,
-                        playlistsProvider: playlistsProvider,
-                        colorScheme: colorScheme,
-                        theme: theme,
-                        isFiltered: true,
-                      );
-                    },
-                    childCount: pontosFiltrados.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = pontosFiltrados[index];
+                    return _buildPontoCard(
+                      context: context,
+                      item: item,
+                      index: index,
+                      playlist: playlist,
+                      entidades: entidades,
+                      audioProvider: audioProvider,
+                      playlistsProvider: playlistsProvider,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                      isFiltered: true,
+                      canEdit: canEdit,
+                    );
+                  }, childCount: pontosFiltrados.length),
                 ),
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 sliver: SliverReorderableList(
                   itemCount: playlist.pontos.length,
                   onReorderItem: (oldIndex, newIndex) {
+                    final authProvider = context.read<AuthProvider>();
+                    if (!authProvider.isLoggedIn ||
+                        (authProvider.userRole != 'ADM' &&
+                            authProvider.userRole != 'FILHO')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Você não tem permissão para alterar a playlist.',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (oldIndex == newIndex ||
+                        (oldIndex < newIndex && newIndex == oldIndex + 1)) {
+                      // Ordem não alterada efetivamente
+                      return;
+                    }
+
                     playlistsProvider.reordenarPontosLocais(
                       playlist.id!,
                       oldIndex,
                       newIndex,
                     );
-                    playlistsProvider.salvarPlaylist(playlist.id!);
+                    playlistsProvider.salvarPlaylist(playlist.id!).then((
+                      sucesso,
+                    ) {
+                      if (!sucesso) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                playlistsProvider.errorMessage ??
+                                    'Erro ao salvar a nova ordem.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    });
                   },
                   itemBuilder: (context, index) {
                     final item = playlist.pontos[index];
@@ -968,6 +1154,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       colorScheme: colorScheme,
                       theme: theme,
                       isFiltered: false,
+                      canEdit: canEdit,
                     );
                   },
                 ),
@@ -990,9 +1177,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     required ColorScheme colorScheme,
     required ThemeData theme,
     required bool isFiltered,
+    required bool canEdit,
   }) {
     final ponto = item.ponto;
-    final isPlayingThisTrack = audioProvider.currentPonto?.id == ponto.id &&
+    final isPlayingThisTrack =
+        audioProvider.currentPonto?.id == ponto.id &&
         audioProvider.currentPlaylist?.id == playlist.id &&
         audioProvider.isPlaying;
 
@@ -1001,16 +1190,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     String? nomeEntidade;
     if (ponto.entidadeId != null) {
       try {
-        nomeEntidade = entidades.firstWhere((e) => e.id == ponto.entidadeId).nomeEntidade;
+        nomeEntidade = entidades
+            .firstWhere((e) => e.id == ponto.entidadeId)
+            .nomeEntidade;
       } catch (_) {}
     }
 
     return Card(
       key: ValueKey('item_${ponto.id}_$index'),
       margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1036,7 +1225,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         : colorScheme.onPrimaryContainer,
                     child: Text(
                       '${item.ordem}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1048,8 +1240,12 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ponto.nomePonto,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: isPlayingThisTrack ? FontWeight.bold : FontWeight.w600,
-                            color: isPlayingThisTrack ? colorScheme.primary : null,
+                            fontWeight: isPlayingThisTrack
+                                ? FontWeight.bold
+                                : FontWeight.w600,
+                            color: isPlayingThisTrack
+                                ? colorScheme.primary
+                                : null,
                           ),
                         ),
                         // Espaçamento reduzido
@@ -1071,7 +1267,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   iconSize: 20,
@@ -1081,7 +1280,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                         : Icons.play_circle_fill_rounded,
                                     color: colorScheme.primary,
                                   ),
-                                  tooltip: isPlayingThisTrack ? 'Pausar' : 'Tocar',
+                                  tooltip: isPlayingThisTrack
+                                      ? 'Pausar'
+                                      : 'Tocar',
                                   onPressed: () {
                                     if (isPlayingThisTrack) {
                                       audioProvider.pausar();
@@ -1096,7 +1297,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   },
                                 ),
                                 IconButton(
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
                                   iconSize: 20,
@@ -1106,29 +1310,40 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                         : Icons.keyboard_arrow_down_rounded,
                                     color: colorScheme.onSurfaceVariant,
                                   ),
-                                  tooltip: isExpanded ? 'Recolher Letra' : 'Expandir Letra',
+                                  tooltip: isExpanded
+                                      ? 'Recolher Letra'
+                                      : 'Expandir Letra',
                                   onPressed: () {
                                     if (ponto.id != null) {
                                       _toggleExpandPonto(ponto.id!);
                                     }
                                   },
                                 ),
-                                IconButton(
-                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                  padding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  iconSize: 20,
-                                  icon: const Icon(
-                                    Icons.remove_circle_outline_rounded,
-                                    color: Colors.redAccent,
+                                if (canEdit)
+                                  IconButton(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    iconSize: 20,
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline_rounded,
+                                      color: Colors.redAccent,
+                                    ),
+                                    tooltip: 'Remover da Playlist',
+                                    onPressed: () {
+                                      playlistsProvider.removerPontoDaPlaylist(
+                                        playlist.id!,
+                                        index,
+                                      );
+                                      playlistsProvider.salvarPlaylist(
+                                        playlist.id!,
+                                      );
+                                    },
                                   ),
-                                  tooltip: 'Remover da Playlist',
-                                  onPressed: () {
-                                    playlistsProvider.removerPontoDaPlaylist(playlist.id!, index);
-                                    playlistsProvider.salvarPlaylist(playlist.id!);
-                                  },
-                                ),
-                                if (!isFiltered)
+                                if (canEdit && !isFiltered)
                                   ReorderableDragStartListener(
                                     index: index,
                                     child: Padding(
@@ -1172,12 +1387,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => PontoDetailScreen(ponto: ponto),
+                              builder: (context) =>
+                                  PontoDetailScreen(ponto: ponto),
                             ),
                           );
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
                           child: Text(
                             'Ver detalhes',
                             style: theme.textTheme.labelMedium?.copyWith(
@@ -1195,7 +1414,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ponto.pontoLetra,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             height: 1.4,
-                            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14.0) * _letrasFontScale,
+                            fontSize:
+                                (theme.textTheme.bodyMedium?.fontSize ?? 14.0) *
+                                _letrasFontScale,
                           ),
                         )
                       : Text(
@@ -1203,7 +1424,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontStyle: FontStyle.italic,
                             color: theme.hintColor,
-                            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14.0) * _letrasFontScale,
+                            fontSize:
+                                (theme.textTheme.bodyMedium?.fontSize ?? 14.0) *
+                                _letrasFontScale,
                           ),
                         ),
                 ],
@@ -1271,7 +1494,9 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
   List<_LinhaNode> _buildHierarchy(List<Entidade> entidades) {
     final Map<String, List<Entidade>> byLinha = {};
     for (final e in entidades) {
-      final linhaKey = e.linhaEntidade.trim().isNotEmpty ? e.linhaEntidade.trim() : 'Outras Linhas';
+      final linhaKey = e.linhaEntidade.trim().isNotEmpty
+          ? e.linhaEntidade.trim()
+          : 'Outras Linhas';
       byLinha.putIfAbsent(linhaKey, () => []).add(e);
     }
 
@@ -1283,7 +1508,8 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
 
       for (final e in lineEntidades) {
         final falangeName = e.falange.trim();
-        if (falangeName.isEmpty || falangeName.toLowerCase() == linhaName.toLowerCase()) {
+        if (falangeName.isEmpty ||
+            falangeName.toLowerCase() == linhaName.toLowerCase()) {
           diretas.add(e);
         } else {
           byFalange.putIfAbsent(falangeName, () => []).add(e);
@@ -1294,11 +1520,13 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
         return _FalangeNode(falange: entry.key, entidades: entry.value);
       }).toList();
 
-      linhasNodes.add(_LinhaNode(
-        linha: linhaName,
-        falanges: falangesNodes,
-        entidadesDiretas: diretas,
-      ));
+      linhasNodes.add(
+        _LinhaNode(
+          linha: linhaName,
+          falanges: falangesNodes,
+          entidadesDiretas: diretas,
+        ),
+      );
     });
 
     return linhasNodes;
@@ -1314,13 +1542,19 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
 
     Playlist? currentPlaylist;
     try {
-      currentPlaylist = playlistsProvider.playlists.firstWhere((p) => p.id == widget.playlistId);
+      currentPlaylist = playlistsProvider.playlists.firstWhere(
+        (p) => p.id == widget.playlistId,
+      );
     } catch (_) {
       currentPlaylist = null;
     }
 
     final pontosJaAdicionadosIds =
-        currentPlaylist?.pontos.map((item) => item.ponto.id).whereType<int>().toSet() ?? {};
+        currentPlaylist?.pontos
+            .map((item) => item.ponto.id)
+            .whereType<int>()
+            .toSet() ??
+        {};
 
     // Filtragem dos pontos
     final searchQuery = _searchController.text.trim().toLowerCase();
@@ -1334,7 +1568,8 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
 
       // Filtro por entidade em cascata
       if (_selectedEntidadesForFilter.isNotEmpty) {
-        if (p.entidadeId == null || !_selectedEntidadesForFilter.contains(p.entidadeId)) {
+        if (p.entidadeId == null ||
+            !_selectedEntidadesForFilter.contains(p.entidadeId)) {
           return false;
         }
       }
@@ -1395,13 +1630,22 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                         style: const TextStyle(fontSize: 13),
                         decoration: InputDecoration(
                           hintText: 'Buscar ponto...',
-                          hintStyle: TextStyle(fontSize: 13, color: theme.hintColor),
-                          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: theme.hintColor,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            size: 18,
+                          ),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
-                                  icon: const Icon(Icons.clear_rounded, size: 14),
+                                  icon: const Icon(
+                                    Icons.clear_rounded,
+                                    size: 14,
+                                  ),
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() {});
@@ -1409,18 +1653,26 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                                 )
                               : null,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(color: colorScheme.outline),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: colorScheme.outline.withValues(alpha: 0.6)),
+                            borderSide: BorderSide(
+                              color: colorScheme.outline.withValues(alpha: 0.6),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
+                            borderSide: BorderSide(
+                              color: colorScheme.primary,
+                              width: 1.5,
+                            ),
                           ),
                         ),
                         onChanged: (_) => setState(() {}),
@@ -1433,11 +1685,16 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                     child: FilterChip(
                       showCheckmark: false,
                       visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 0,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                         side: BorderSide(
-                          color: (_isFilterExpanded || _selectedEntidadesForFilter.isNotEmpty)
+                          color:
+                              (_isFilterExpanded ||
+                                  _selectedEntidadesForFilter.isNotEmpty)
                               ? Colors.transparent
                               : colorScheme.outline.withValues(alpha: 0.6),
                         ),
@@ -1462,7 +1719,9 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                               : null,
                         ),
                       ),
-                      selected: _isFilterExpanded || _selectedEntidadesForFilter.isNotEmpty,
+                      selected:
+                          _isFilterExpanded ||
+                          _selectedEntidadesForFilter.isNotEmpty,
                       selectedColor: colorScheme.primary,
                       onSelected: (_) => _toggleFilterPanel(),
                     ),
@@ -1471,7 +1730,8 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
               ),
 
               // Chip de Filtro Ativo quando o painel estiver fechado
-              if (!_isFilterExpanded && _selectedEntidadesForFilter.isNotEmpty) ...[
+              if (!_isFilterExpanded &&
+                  _selectedEntidadesForFilter.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -1534,7 +1794,10 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                         });
                       },
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         child: Text(
                           'Desmarcar todos',
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -1549,23 +1812,35 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                 const Divider(height: 8),
                 Expanded(
                   child: entidades.isEmpty
-                      ? const Center(child: Text('Nenhuma entidade cadastrada.'))
+                      ? const Center(
+                          child: Text('Nenhuma entidade cadastrada.'),
+                        )
                       : ListView.builder(
                           shrinkWrap: true,
                           itemCount: hierarchy.length,
                           itemBuilder: (context, lIdx) {
                             final linhaNode = hierarchy[lIdx];
-                            final linhaEntidadeIds =
-                                linhaNode.allEntidades.map((e) => e.id).whereType<int>().toSet();
+                            final linhaEntidadeIds = linhaNode.allEntidades
+                                .map((e) => e.id)
+                                .whereType<int>()
+                                .toSet();
 
-                            final allLinhaChecked = linhaEntidadeIds.isNotEmpty &&
-                                _draftEntidadesForFilter.containsAll(linhaEntidadeIds);
-                            final someLinhaChecked =
-                                linhaEntidadeIds.any((id) => _draftEntidadesForFilter.contains(id));
-                            final isLinhaExpanded = _expandedLinhas.contains(linhaNode.linha);
+                            final allLinhaChecked =
+                                linhaEntidadeIds.isNotEmpty &&
+                                _draftEntidadesForFilter.containsAll(
+                                  linhaEntidadeIds,
+                                );
+                            final someLinhaChecked = linhaEntidadeIds.any(
+                              (id) => _draftEntidadesForFilter.contains(id),
+                            );
+                            final isLinhaExpanded = _expandedLinhas.contains(
+                              linhaNode.linha,
+                            );
 
                             return Theme(
-                              data: theme.copyWith(dividerColor: Colors.transparent),
+                              data: theme.copyWith(
+                                dividerColor: Colors.transparent,
+                              ),
                               child: ExpansionTile(
                                 key: PageStorageKey('linha_${linhaNode.linha}'),
                                 initiallyExpanded: isLinhaExpanded,
@@ -1586,23 +1861,35 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                                   onChanged: (val) {
                                     setState(() {
                                       if (allLinhaChecked) {
-                                        _draftEntidadesForFilter.removeAll(linhaEntidadeIds);
+                                        _draftEntidadesForFilter.removeAll(
+                                          linhaEntidadeIds,
+                                        );
                                       } else {
-                                        _draftEntidadesForFilter.addAll(linhaEntidadeIds);
+                                        _draftEntidadesForFilter.addAll(
+                                          linhaEntidadeIds,
+                                        );
                                       }
                                     });
                                   },
                                 ),
                                 title: Text(
                                   'Linha: ${linhaNode.linha}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
-                                childrenPadding: const EdgeInsets.only(left: 16),
+                                childrenPadding: const EdgeInsets.only(
+                                  left: 16,
+                                ),
                                 children: [
                                   // Entidades diretas na linha
                                   ...linhaNode.entidadesDiretas.map((ent) {
                                     final isEntChecked =
-                                        ent.id != null && _draftEntidadesForFilter.contains(ent.id);
+                                        ent.id != null &&
+                                        _draftEntidadesForFilter.contains(
+                                          ent.id,
+                                        );
                                     return CheckboxListTile(
                                       dense: true,
                                       visualDensity: VisualDensity.compact,
@@ -1615,9 +1902,13 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                                         if (ent.id == null) return;
                                         setState(() {
                                           if (val == true) {
-                                            _draftEntidadesForFilter.add(ent.id!);
+                                            _draftEntidadesForFilter.add(
+                                              ent.id!,
+                                            );
                                           } else {
-                                            _draftEntidadesForFilter.remove(ent.id!);
+                                            _draftEntidadesForFilter.remove(
+                                              ent.id!,
+                                            );
                                           }
                                         });
                                       },
@@ -1626,27 +1917,40 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
 
                                   // Sub-falanges
                                   ...linhaNode.falanges.map((falangeNode) {
-                                    final falangeEntidadeIds = falangeNode.entidades
+                                    final falangeEntidadeIds = falangeNode
+                                        .entidades
                                         .map((e) => e.id)
                                         .whereType<int>()
                                         .toSet();
 
-                                    final allFalangeChecked = falangeEntidadeIds.isNotEmpty &&
-                                        _draftEntidadesForFilter.containsAll(falangeEntidadeIds);
-                                    final someFalangeChecked = falangeEntidadeIds
-                                        .any((id) => _draftEntidadesForFilter.contains(id));
-                                    final falangeKey = '${linhaNode.linha}_${falangeNode.falange}';
-                                    final isFalangeExpanded = _expandedFalanges.contains(falangeKey);
+                                    final allFalangeChecked =
+                                        falangeEntidadeIds.isNotEmpty &&
+                                        _draftEntidadesForFilter.containsAll(
+                                          falangeEntidadeIds,
+                                        );
+                                    final someFalangeChecked =
+                                        falangeEntidadeIds.any(
+                                          (id) => _draftEntidadesForFilter
+                                              .contains(id),
+                                        );
+                                    final falangeKey =
+                                        '${linhaNode.linha}_${falangeNode.falange}';
+                                    final isFalangeExpanded = _expandedFalanges
+                                        .contains(falangeKey);
 
                                     return ExpansionTile(
-                                      key: PageStorageKey('falange_$falangeKey'),
+                                      key: PageStorageKey(
+                                        'falange_$falangeKey',
+                                      ),
                                       initiallyExpanded: isFalangeExpanded,
                                       onExpansionChanged: (expanded) {
                                         setState(() {
                                           if (expanded) {
                                             _expandedFalanges.add(falangeKey);
                                           } else {
-                                            _expandedFalanges.remove(falangeKey);
+                                            _expandedFalanges.remove(
+                                              falangeKey,
+                                            );
                                           }
                                         });
                                       },
@@ -1654,13 +1958,20 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                                         tristate: true,
                                         value: allFalangeChecked
                                             ? true
-                                            : (someFalangeChecked ? null : false),
+                                            : (someFalangeChecked
+                                                  ? null
+                                                  : false),
                                         onChanged: (val) {
                                           setState(() {
                                             if (allFalangeChecked) {
-                                              _draftEntidadesForFilter.removeAll(falangeEntidadeIds);
+                                              _draftEntidadesForFilter
+                                                  .removeAll(
+                                                    falangeEntidadeIds,
+                                                  );
                                             } else {
-                                              _draftEntidadesForFilter.addAll(falangeEntidadeIds);
+                                              _draftEntidadesForFilter.addAll(
+                                                falangeEntidadeIds,
+                                              );
                                             }
                                           });
                                         },
@@ -1668,27 +1979,42 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                                       title: Text(
                                         'Falange: ${falangeNode.falange}',
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.w600, fontSize: 12),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12,
+                                        ),
                                       ),
-                                      childrenPadding: const EdgeInsets.only(left: 16),
-                                      children: falangeNode.entidades.map((ent) {
-                                        final isEntChecked = ent.id != null &&
-                                            _draftEntidadesForFilter.contains(ent.id);
+                                      childrenPadding: const EdgeInsets.only(
+                                        left: 16,
+                                      ),
+                                      children: falangeNode.entidades.map((
+                                        ent,
+                                      ) {
+                                        final isEntChecked =
+                                            ent.id != null &&
+                                            _draftEntidadesForFilter.contains(
+                                              ent.id,
+                                            );
                                         return CheckboxListTile(
                                           dense: true,
                                           visualDensity: VisualDensity.compact,
                                           title: Text(
                                             ent.nomeEntidade,
-                                            style: const TextStyle(fontSize: 12),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
                                           ),
                                           value: isEntChecked,
                                           onChanged: (val) {
                                             if (ent.id == null) return;
                                             setState(() {
                                               if (val == true) {
-                                                _draftEntidadesForFilter.add(ent.id!);
+                                                _draftEntidadesForFilter.add(
+                                                  ent.id!,
+                                                );
                                               } else {
-                                                _draftEntidadesForFilter.remove(ent.id!);
+                                                _draftEntidadesForFilter.remove(
+                                                  ent.id!,
+                                                );
                                               }
                                             });
                                           },
@@ -1716,19 +2042,34 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                       },
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: const Text('Cancelar', style: TextStyle(fontSize: 12)),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     FilledButton.tonalIcon(
                       onPressed: _aplicarFiltro,
                       icon: const Icon(Icons.check_rounded, size: 16),
-                      label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Aplicar Filtro',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       style: FilledButton.styleFrom(
                         visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
@@ -1748,7 +2089,8 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Text(
-                      _selectedEntidadesForFilter.isNotEmpty || searchQuery.isNotEmpty
+                      _selectedEntidadesForFilter.isNotEmpty ||
+                              searchQuery.isNotEmpty
                           ? 'Nenhum ponto encontrado para o filtro aplicado.'
                           : 'Nenhum ponto cadastrado no catálogo.',
                       textAlign: TextAlign.center,
@@ -1764,13 +2106,15 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                   itemBuilder: (context, index) {
                     final ponto = pontosFiltrados[index];
                     final jaNaPlaylist =
-                        ponto.id != null && pontosJaAdicionadosIds.contains(ponto.id);
+                        ponto.id != null &&
+                        pontosJaAdicionadosIds.contains(ponto.id);
 
                     String? nomeEntidade;
                     if (ponto.entidadeId != null) {
                       try {
-                        nomeEntidade =
-                            entidades.firstWhere((e) => e.id == ponto.entidadeId).nomeEntidade;
+                        nomeEntidade = entidades
+                            .firstWhere((e) => e.id == ponto.entidadeId)
+                            .nomeEntidade;
                       } catch (_) {}
                     }
 
@@ -1791,7 +2135,9 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
                                 ? Icons.check_circle_rounded
                                 : Icons.add_circle_outline_rounded,
                             key: ValueKey('icon_${ponto.id}_$jaNaPlaylist'),
-                            color: jaNaPlaylist ? Colors.green : colorScheme.primary,
+                            color: jaNaPlaylist
+                                ? Colors.green
+                                : colorScheme.primary,
                           ),
                         ),
                         onPressed: () {
@@ -1799,23 +2145,31 @@ class _AddPontoModalContentState extends State<_AddPontoModalContent> {
 
                           if (jaNaPlaylist) {
                             playlistsProvider.removerPontoCantadoDaPlaylist(
-                                widget.playlistId, ponto.id!);
+                              widget.playlistId,
+                              ponto.id!,
+                            );
                             playlistsProvider.salvarPlaylist(widget.playlistId);
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('"${ponto.nomePonto}" removido da gira!'),
+                                content: Text(
+                                  '"${ponto.nomePonto}" removido da gira!',
+                                ),
                                 duration: const Duration(seconds: 1),
                               ),
                             );
                           } else {
                             playlistsProvider.adicionarPontoAPlaylist(
-                                widget.playlistId, ponto);
+                              widget.playlistId,
+                              ponto,
+                            );
                             playlistsProvider.salvarPlaylist(widget.playlistId);
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('"${ponto.nomePonto}" adicionado à gira!'),
+                                content: Text(
+                                  '"${ponto.nomePonto}" adicionado à gira!',
+                                ),
                                 duration: const Duration(seconds: 1),
                               ),
                             );
@@ -1855,9 +2209,5 @@ class _FalangeNode {
   final String falange;
   final List<Entidade> entidades;
 
-  _FalangeNode({
-    required this.falange,
-    required this.entidades,
-  });
+  _FalangeNode({required this.falange, required this.entidades});
 }
-

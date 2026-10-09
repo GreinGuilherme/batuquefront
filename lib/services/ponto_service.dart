@@ -55,7 +55,7 @@ class PontoService {
       queryParams['entidadeId'] = entidadeId.toString();
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/buscar/filtro')
+    final uri = Uri.parse('${ApiConfig.baseUrl}/gestaopontos/buscar/filtrar')
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 

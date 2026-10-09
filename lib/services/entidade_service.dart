@@ -52,7 +52,7 @@ class EntidadeService {
       queryParams['termo'] = termo;
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar/filtro')
+    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar/filtrar')
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 
