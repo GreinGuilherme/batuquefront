@@ -22,8 +22,32 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
   Timer? _manualScrollTimer;
   late Ticker _ticker;
   Duration _lastElapsed = Duration.zero;
+  Duration _currentElapsed = Duration.zero;
 
   bool _isManualScrolling = false;
+  bool _isDraggingScrollbar = false;
+  double _scrollbarDragY = 0.0;
+  String _draggedPontoName = '';
+
+  void _onScrollbarDrag(double dy, double trackHeight) {
+    if (!_scrollController.hasClients) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) return;
+
+    final double progress = (dy / trackHeight).clamp(0.0, 1.0);
+    final double targetOffset = progress * maxExtent;
+    _scrollController.jumpTo(targetOffset);
+
+    if (widget.pontos.isNotEmpty) {
+      final int index = (progress * (widget.pontos.length - 1)).round().clamp(0, widget.pontos.length - 1);
+      setState(() {
+        _isManualScrolling = true;
+        _isDraggingScrollbar = true;
+        _scrollbarDragY = dy.clamp(30.0, trackHeight - 30.0);
+        _draggedPontoName = widget.pontos[index].ponto.nomePonto;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -33,6 +57,7 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     _ticker = createTicker((elapsed) {
+      _currentElapsed = elapsed;
       if (!_isManualScrolling && _scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
         final double dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
         _lastElapsed = elapsed;
@@ -77,8 +102,10 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
   }
 
   void _startManualScroll(bool up) {
-    _isManualScrolling = true;
-    _manualScrollTimer?.cancel();
+    setState(() {
+      _isManualScrolling = true;
+      _manualScrollTimer?.cancel();
+    });
     
     // Calcula quantos pixels avançar/retroceder por frame (ex: a 60 fps)
     // 300 pixels por segundo -> 300 / 60 = 5 pixels por frame
@@ -103,8 +130,11 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
   }
 
   void _stopManualScroll() {
-    _isManualScrolling = false;
-    _manualScrollTimer?.cancel();
+    setState(() {
+      _isManualScrolling = false;
+      _manualScrollTimer?.cancel();
+      _lastElapsed = _currentElapsed;
+    });
   }
 
   void _increaseFontSize() {
@@ -117,22 +147,6 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
     setState(() {
       if (_fontSize > 10.0) _fontSize -= 2.0;
     });
-  }
-
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void _scrollToBottom() {
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
   }
 
   @override
@@ -194,42 +208,130 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
       ),
       body: Stack(
         children: [
-          ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(16.0),
-            itemCount: widget.pontos.length,
-            itemBuilder: (context, index) {
-              final pontoItem = widget.pontos[index];
-              final letra = pontoItem.ponto.pontoLetra.trim();
-              
-              if (letra.isEmpty) {
-                return const SizedBox.shrink();
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (_isPlaying) {
+                if (notification is ScrollStartNotification) {
+                  if (notification.dragDetails != null) {
+                    setState(() {
+                      _isManualScrolling = true;
+                    });
+                  }
+                } else if (notification is ScrollEndNotification) {
+                  if (_isManualScrolling) {
+                    setState(() {
+                      _isManualScrolling = false;
+                      _lastElapsed = _currentElapsed;
+                    });
+                  }
+                }
               }
+              return false;
+            },
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16.0),
+              itemCount: widget.pontos.length,
+              itemBuilder: (context, index) {
+                final pontoItem = widget.pontos[index];
+                final letra = pontoItem.ponto.pontoLetra.trim();
+                
+                if (letra.isEmpty) {
+                  return const SizedBox.shrink();
+                }
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 24.0),
-                elevation: 2,
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 24.0),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      letra,
+                      style: TextStyle(fontSize: _fontSize, height: 1.5),
+                      textAlign: TextAlign.left, // Alinhado à esquerda
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Custom interactive scrollbar track on the right side
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 36,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double trackHeight = constraints.maxHeight;
+                return GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onVerticalDragStart: (details) {
+                    _onScrollbarDrag(details.localPosition.dy, trackHeight);
+                  },
+                  onVerticalDragUpdate: (details) {
+                    _onScrollbarDrag(details.localPosition.dy, trackHeight);
+                  },
+                  onVerticalDragEnd: (_) {
+                    setState(() {
+                      _isManualScrolling = false;
+                      _isDraggingScrollbar = false;
+                    });
+                  },
+                  onVerticalDragCancel: () {
+                    setState(() {
+                      _isManualScrolling = false;
+                      _isDraggingScrollbar = false;
+                    });
+                  },
+                  child: Container(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      width: 6,
+                      height: trackHeight,
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // Floating popup box showing ponto name when dragging scrollbar
+          if (_isDraggingScrollbar && _draggedPontoName.isNotEmpty)
+            Positioned(
+              right: 44,
+              top: _scrollbarDragY - 25,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(8),
+                color: Theme.of(context).colorScheme.primary,
                 child: Padding(
-                  padding: const EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Text(
-                    letra,
-                    style: TextStyle(fontSize: _fontSize, height: 1.5),
-                    textAlign: TextAlign.left, // Alinhado à esquerda
+                    _draggedPontoName,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            ),
           Positioned(
             bottom: 16,
-            right: 16,
+            right: 48,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: _scrollToTop, // Clique simples: vai para o topo
-                  onLongPressStart: (_) => _startManualScroll(true), // Segurar: rebobina (sobe)
-                  onLongPressEnd: (_) => _stopManualScroll(), // Soltar: volta ao estado normal
+                  onTapDown: (_) => _startManualScroll(true), // Pressionou: sobe instantaneamente
+                  onTapUp: (_) => _stopManualScroll(), // Soltou: para
+                  onTapCancel: () => _stopManualScroll(), // Cancelou: para
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
@@ -251,9 +353,9 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
                 ),
                 const SizedBox(height: 12),
                 GestureDetector(
-                  onTap: _scrollToBottom, // Clique simples: vai para o rodapé
-                  onLongPressStart: (_) => _startManualScroll(false), // Segurar: avança (desce)
-                  onLongPressEnd: (_) => _stopManualScroll(), // Soltar: volta ao estado normal
+                  onTapDown: (_) => _startManualScroll(false), // Pressionou: desce instantaneamente
+                  onTapUp: (_) => _stopManualScroll(), // Soltou: para
+                  onTapCancel: () => _stopManualScroll(), // Cancelou: para
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
