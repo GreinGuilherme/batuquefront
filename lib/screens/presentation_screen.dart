@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import '../models/ponto_cantado.dart';
 import '../models/ponto_item.dart';
 
 class PresentationScreen extends StatefulWidget {

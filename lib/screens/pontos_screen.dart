@@ -7,7 +7,6 @@ import '../providers/entidades_provider.dart';
 import '../providers/audio_player_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/ponto_card.dart';
-import '../widgets/ponto_form_dialog.dart';
 import 'ponto_detail_screen.dart';
 
 class PontosScreen extends StatefulWidget {
@@ -230,7 +229,11 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                 if (canEdit) ...[
                   const SizedBox(width: 8),
                   IconButton.filled(
-                    onPressed: () => PontoFormDialog.show(context),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const PontoDetailScreen(),
+                      ),
+                    ),
                     icon: const Icon(Icons.add_rounded, size: 20),
                     style: IconButton.styleFrom(
                       shape: RoundedRectangleBorder(
@@ -565,7 +568,13 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                                   audioProvider.tocarPonto(ponto);
                                 }
                               },
-                              onEdit: canEdit ? () => PontoFormDialog.show(context, ponto: ponto) : null,
+                              onEdit: canEdit ? () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PontoDetailScreen(ponto: ponto, startInEditMode: true),
+                                  ),
+                                );
+                              } : null,
                               onDelete: canEdit ? () => _confirmDelete(
                                 context,
                                 ponto,
