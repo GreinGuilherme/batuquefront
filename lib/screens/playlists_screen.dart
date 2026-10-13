@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/playlist.dart';
+import '../models/gira.dart';
 import '../models/entidade.dart';
 import '../providers/playlists_provider.dart';
+import '../providers/giras_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/playlist_form_dialog.dart';
+import '../widgets/gira_form_dialog.dart';
 import 'playlist_detail_screen.dart';
+import 'gira_detail_screen.dart';
 
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({super.key});
@@ -20,6 +24,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
   @override
   bool get wantKeepAlive => true;
 
+  String _selectedTab = 'playlist'; // 'playlist' ou 'gira'
+
   final TextEditingController _searchController = TextEditingController();
 
   bool _isFilterExpanded = false;
@@ -30,6 +36,16 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
   Set<String> _appliedLinhas = {};
   Set<String> _appliedFalanges = {};
   Set<int> _appliedEntidades = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<GirasProvider>().carregarGiras();
+      context.read<PlaylistsProvider>().carregarPlaylists();
+    });
+  }
 
   @override
   void dispose() {
@@ -67,10 +83,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
       _appliedEntidades.clear();
       _searchController.clear();
     });
-    context.read<PlaylistsProvider>().filtrarPlaylists('');
+    if (_selectedTab == 'playlist') {
+      context.read<PlaylistsProvider>().filtrarPlaylists('');
+    } else {
+      context.read<GirasProvider>().filtrarGiras('');
+    }
   }
 
-  void _confirmDelete(BuildContext context, Playlist playlist) {
+  void _confirmDeletePlaylist(BuildContext context, Playlist playlist) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -116,20 +136,69 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
     );
   }
 
+  void _confirmDeleteGira(BuildContext context, Gira gira) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Deletar Playlist de Gira'),
+        content: Text('Deseja realmente deletar a gira "${gira.nomeGira}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              if (gira.id != null) {
+                final provider = context.read<GirasProvider>();
+                final messenger = ScaffoldMessenger.of(context);
+                final ok = await provider.deletarGira(
+                  gira.id!,
+                  nomeGira: gira.nomeGira,
+                );
+                if (ok) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Playlist de Gira "${gira.nomeGira}" deletada com sucesso!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage ?? 'Erro ao deletar gira "${gira.nomeGira}".'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Deletar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final provider = context.watch<PlaylistsProvider>();
+    final playlistsProvider = context.watch<PlaylistsProvider>();
+    final girasProvider = context.watch<GirasProvider>();
     final entidadesProvider = context.watch<EntidadesProvider>();
     final authProvider = context.watch<AuthProvider>();
-    final todasPlaylists = provider.playlists;
-    final entidades = entidadesProvider.todasEntidades;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     
     final canEdit = authProvider.isLoggedIn && (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
-    // Linhas disponíveis
+    final todasPlaylists = playlistsProvider.playlists;
+    final todasGiras = girasProvider.giras;
+    final entidades = entidadesProvider.todasEntidades;
+
+    // Linhas disponíveis para filtro em playlists de ponto
     final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
 
     final entidadesNasLinhas = _tempSelectedLinhas.isEmpty
@@ -143,7 +212,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
 
     final totalFiltrosAtivos = _appliedLinhas.length + _appliedFalanges.length + _appliedEntidades.length;
 
-    // Filtrar playlists que possuem pelo menos um ponto correspondente às características selecionadas
+    // Filtrar playlists de ponto
     final playlists = todasPlaylists.where((playlist) {
       if (_appliedLinhas.isEmpty && _appliedFalanges.isEmpty && _appliedEntidades.isEmpty) {
         return true;
@@ -173,6 +242,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
       });
     }).toList();
 
+    // Filtrar giras
+    final searchQueryGira = _searchController.text.trim().toLowerCase();
+    final giras = todasGiras.where((gira) {
+      if (searchQueryGira.isEmpty) return true;
+      final matchNome = gira.nomeGira.toLowerCase().contains(searchQueryGira);
+      final matchDesc = gira.descricao != null && gira.descricao!.toLowerCase().contains(searchQueryGira);
+      return matchNome || matchDesc;
+    }).toList();
+
     return Scaffold(
       body: Column(
         children: [
@@ -186,7 +264,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                     controller: _searchController,
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: 'Buscar playlist de Gira...',
+                      hintText: _selectedTab == 'playlist'
+                          ? 'Buscar playlist...'
+                          : 'Buscar playlist de Gira...',
                       hintStyle: const TextStyle(fontSize: 13),
                       prefixIcon: const Icon(Icons.search_rounded, size: 20),
                       suffixIcon: _searchController.text.isNotEmpty
@@ -194,7 +274,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                               icon: const Icon(Icons.clear_rounded, size: 18),
                               onPressed: () {
                                 _searchController.clear();
-                                provider.filtrarPlaylists('');
+                                if (_selectedTab == 'playlist') {
+                                  playlistsProvider.filtrarPlaylists('');
+                                } else {
+                                  girasProvider.filtrarGiras('');
+                                }
                               },
                             )
                           : null,
@@ -207,7 +291,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                       ),
                     ),
                     onChanged: (value) {
-                      provider.filtrarPlaylists(value);
+                      if (_selectedTab == 'playlist') {
+                        playlistsProvider.filtrarPlaylists(value);
+                      } else {
+                        girasProvider.filtrarGiras(value);
+                      }
                     },
                   ),
                 ),
@@ -215,9 +303,16 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                   const SizedBox(width: 8),
                   IconButton.filled(
                     onPressed: () async {
-                      await PlaylistFormDialog.show(context);
-                      if (context.mounted) {
-                        context.read<PlaylistsProvider>().carregarPlaylists();
+                      if (_selectedTab == 'playlist') {
+                        await PlaylistFormDialog.show(context);
+                        if (context.mounted) {
+                          context.read<PlaylistsProvider>().carregarPlaylists();
+                        }
+                      } else {
+                        await GiraFormDialog.show(context);
+                        if (context.mounted) {
+                          context.read<GirasProvider>().carregarGiras();
+                        }
                       }
                     },
                     icon: const Icon(Icons.add_rounded, size: 20),
@@ -228,393 +323,617 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                       minimumSize: const Size(38, 38),
                       padding: EdgeInsets.zero,
                     ),
-                    tooltip: 'Nova Playlist',
+                    tooltip: _selectedTab == 'playlist' ? 'Nova Playlist' : 'Nova Gira',
                   ),
                 ],
               ],
             ),
           ),
 
-          // Cascading Filter Trigger & Active Filters summary
+          // Area do Circulo: Botoes de Selecao (Playlist vs Gira)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            child: Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _toggleFilterPanel,
-                  icon: Icon(
-                    _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                    size: 15,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: SizedBox(
+              width: double.infinity,
+              height: 38,
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment<String>(
+                    value: 'playlist',
+                    label: Text('Playlist', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    icon: Icon(Icons.queue_music_rounded, size: 18),
                   ),
-                  label: Text(
-                    totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                  ButtonSegment<String>(
+                    value: 'gira',
+                    label: Text('Gira', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    icon: Icon(Icons.auto_awesome_motion_rounded, size: 18),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    minimumSize: const Size(0, 28),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                ],
+                selected: {_selectedTab},
+                onSelectionChanged: (Set<String> newSelection) {
+                  setState(() {
+                    _selectedTab = newSelection.first;
+                    _searchController.clear();
+                  });
+                },
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ),
+          ),
+
+          // Filter row (apenas para aba de Playlist)
+          if (_selectedTab == 'playlist')
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              child: Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _toggleFilterPanel,
+                    icon: Icon(
+                      _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+                      size: 15,
                     ),
-                    backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
-                        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                        : null,
+                    label: Text(
+                      totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      minimumSize: const Size(0, 28),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
+                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                          : null,
+                    ),
+                  ),
+                  if (totalFiltrosAtivos > 0) ...[
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: _clearFilters,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: theme.colorScheme.error,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              'Limpar filtros',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: theme.colorScheme.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // Cascading Filter Panel (Collapsible para tab de Playlist)
+          if (_selectedTab == 'playlist')
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant,
                   ),
                 ),
-                if (totalFiltrosAtivos > 0) ...[
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: _clearFilters,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Filtro por Características',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 16),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => setState(() => _isFilterExpanded = false),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 8),
+
+                    // Nível 1: Linha
+                    Text(
+                      '1. Linha:',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: theme.colorScheme.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: todasLinhas.map((linha) {
+                        final isSelected = _tempSelectedLinhas.contains(linha);
+                        return FilterChip(
+                          visualDensity: VisualDensity.compact,
+                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          label: Text(linha, style: const TextStyle(fontSize: 11)),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _tempSelectedLinhas.add(linha);
+                              } else {
+                                _tempSelectedLinhas.remove(linha);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Nível 2: Falange (Cascata)
+                    Text(
+                      '2. Falange:',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: theme.colorScheme.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: todasFalanges.map((falange) {
+                        final isSelected = _tempSelectedFalanges.contains(falange);
+                        return FilterChip(
+                          visualDensity: VisualDensity.compact,
+                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          label: Text(falange, style: const TextStyle(fontSize: 11)),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _tempSelectedFalanges.add(falange);
+                              } else {
+                                _tempSelectedFalanges.remove(falange);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Nível 3: Entidades (Cascata)
+                    Text(
+                      '3. Entidades:',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: theme.colorScheme.primary,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      children: entidadesNasFalanges.map((entidade) {
+                        if (entidade.id == null) return const SizedBox.shrink();
+                        final isSelected = _tempSelectedEntidades.contains(entidade.id);
+                        return FilterChip(
+                          visualDensity: VisualDensity.compact,
+                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                _tempSelectedEntidades.add(entidade.id!);
+                              } else {
+                                _tempSelectedEntidades.remove(entidade.id!);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _tempSelectedLinhas.clear();
+                              _tempSelectedFalanges.clear();
+                              _tempSelectedEntidades.clear();
+                            });
+                          },
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          ),
+                          child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
+                        ),
+                        const SizedBox(width: 6),
+                        FilledButton.icon(
+                          onPressed: _applyFilter,
+                          icon: const Icon(Icons.check_rounded, size: 14),
+                          label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
+                          style: FilledButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 250),
+            ),
+
+          const SizedBox(height: 2),
+
+          // Lista de Conteúdo (Playlists de Ponto ou Playlists de Gira)
+          Expanded(
+            child: _selectedTab == 'playlist'
+                ? _buildPlaylistsListView(
+                    context: context,
+                    provider: playlistsProvider,
+                    playlists: playlists,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                    canEdit: canEdit,
+                    totalFiltrosAtivos: totalFiltrosAtivos,
+                  )
+                : _buildGirasListView(
+                    context: context,
+                    provider: girasProvider,
+                    giras: giras,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                    canEdit: canEdit,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaylistsListView({
+    required BuildContext context,
+    required PlaylistsProvider provider,
+    required List<Playlist> playlists,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    required bool canEdit,
+    required int totalFiltrosAtivos,
+  }) {
+    return RefreshIndicator(
+      onRefresh: () => provider.carregarPlaylists(),
+      child: provider.isLoading && playlists.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : playlists.isEmpty
+              ? SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.close_rounded,
-                            size: 14,
-                            color: theme.colorScheme.error,
+                            Icons.queue_music_outlined,
+                            size: 48,
+                            color: colorScheme.outline,
                           ),
-                          const SizedBox(width: 2),
+                          const SizedBox(height: 12),
                           Text(
-                            'Limpar filtros',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: theme.colorScheme.error,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            totalFiltrosAtivos > 0 || provider.termoBusca.isNotEmpty
+                                ? 'Nenhuma playlist encontrada com os filtros aplicados.'
+                                : 'Nenhuma playlist criada ainda.',
+                            style: theme.textTheme.bodyMedium,
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
                   ),
-                ],
-              ],
-            ),
-          ),
+                )
+              : ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  itemCount: playlists.length,
+                  itemBuilder: (context, index) {
+                    final playlist = playlists[index];
+                    final dataStr = playlist.dataCriacao != null
+                        ? DateFormat('dd/MM/yyyy').format(playlist.dataCriacao!)
+                        : '';
 
-          // Cascading Filter Panel (Collapsible)
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Filtro por Características',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 16),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => setState(() => _isFilterExpanded = false),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 8),
-
-                  // Nível 1: Linha
-                  Text(
-                    '1. Linha:',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          color: theme.colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 2,
-                    children: todasLinhas.map((linha) {
-                      final isSelected = _tempSelectedLinhas.contains(linha);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        label: Text(linha, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _tempSelectedLinhas.add(linha);
-                            } else {
-                              _tempSelectedLinhas.remove(linha);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Nível 2: Falange (Cascata)
-                  Text(
-                    '2. Falange:',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          color: theme.colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 2,
-                    children: todasFalanges.map((falange) {
-                      final isSelected = _tempSelectedFalanges.contains(falange);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        label: Text(falange, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _tempSelectedFalanges.add(falange);
-                            } else {
-                              _tempSelectedFalanges.remove(falange);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Nível 3: Entidades (Cascata)
-                  Text(
-                    '3. Entidades:',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          color: theme.colorScheme.primary,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 2,
-                    children: entidadesNasFalanges.map((entidade) {
-                      if (entidade.id == null) return const SizedBox.shrink();
-                      final isSelected = _tempSelectedEntidades.contains(entidade.id);
-                      return FilterChip(
-                        visualDensity: VisualDensity.compact,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                        label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _tempSelectedEntidades.add(entidade.id!);
-                            } else {
-                              _tempSelectedEntidades.remove(entidade.id!);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _tempSelectedLinhas.clear();
-                            _tempSelectedFalanges.clear();
-                            _tempSelectedEntidades.clear();
-                          });
-                        },
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        ),
-                        child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
-                      ),
-                      const SizedBox(width: 6),
-                      FilledButton.icon(
-                        onPressed: _applyFilter,
-                        icon: const Icon(Icons.check_rounded, size: 14),
-                        label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
-                        style: FilledButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 250),
-          ),
-
-          const SizedBox(height: 2),
-
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => provider.carregarPlaylists(),
-              child: provider.isLoading && playlists.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : playlists.isEmpty
-                      ? SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: SizedBox(
-                            height: MediaQuery.of(context).size.height * 0.6,
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.queue_music_outlined,
-                                    size: 48,
-                                    color: colorScheme.outline,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    totalFiltrosAtivos > 0 || provider.termoBusca.isNotEmpty
-                                        ? 'Nenhuma playlist encontrada com os filtros aplicados.'
-                                        : 'Nenhuma playlist de Gira criada ainda.',
-                                    style: theme.textTheme.bodyMedium,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          itemCount: playlists.length,
-                          itemBuilder: (context, index) {
-                            final playlist = playlists[index];
-                            final dataStr = playlist.dataCriacao != null
-                                ? DateFormat('dd/MM/yyyy').format(playlist.dataCriacao!)
-                                : '';
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: () {
-                                  if (playlist.id != null) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => PlaylistDetailScreen(playlistId: playlist.id!),
-                                      ),
-                                    );
-                                  }
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 16,
-                                        backgroundColor: colorScheme.primaryContainer,
-                                        foregroundColor: colorScheme.onPrimaryContainer,
-                                        child: const Icon(Icons.queue_music_rounded, size: 18),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              playlist.nomePlaylist,
-                                              style: theme.textTheme.titleMedium?.copyWith(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              '${playlist.pontos.length} ponto(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
-                                              style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      if (canEdit)
-                                        PopupMenuButton<String>(
-                                          icon: const Icon(Icons.more_vert_rounded, size: 18),
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onSelected: (value) {
-                                            if (value == 'edit') {
-                                              PlaylistFormDialog.show(context, playlist: playlist);
-                                            } else if (value == 'delete') {
-                                              _confirmDelete(context, playlist);
-                                            }
-                                          },
-                                          itemBuilder: (context) => [
-                                            const PopupMenuItem(
-                                              value: 'edit',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.edit_outlined, size: 18),
-                                                  SizedBox(width: 8),
-                                                  Text('Editar Nome', style: TextStyle(fontSize: 13)),
-                                                ],
-                                              ),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'delete',
-                                              child: Row(
-                                                children: [
-                                                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                                  SizedBox(width: 8),
-                                                  Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      if (!canEdit)
-                                        Icon(
-                                          Icons.chevron_right_rounded,
-                                          size: 18,
-                                          color: colorScheme.outline,
-                                        ),
-                                    ],
-                                  ),
-                                ),
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () {
+                          if (playlist.id != null) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => PlaylistDetailScreen(playlistId: playlist.id!),
                               ),
                             );
-                          },
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: colorScheme.primaryContainer,
+                                foregroundColor: colorScheme.onPrimaryContainer,
+                                child: const Icon(Icons.queue_music_rounded, size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      playlist.nomePlaylist,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${playlist.pontos.length} ponto(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (canEdit)
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert_rounded, size: 18),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onSelected: (value) {
+                                    if (value == 'edit') {
+                                      PlaylistFormDialog.show(context, playlist: playlist);
+                                    } else if (value == 'delete') {
+                                      _confirmDeletePlaylist(context, playlist);
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit_outlined, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('Editar Nome', style: TextStyle(fontSize: 13)),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                          SizedBox(width: 8),
+                                          Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              if (!canEdit)
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: colorScheme.outline,
+                                ),
+                            ],
+                          ),
                         ),
-            ),
-          ),
-        ],
-      ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+
+  Widget _buildGirasListView({
+    required BuildContext context,
+    required GirasProvider provider,
+    required List<Gira> giras,
+    required ColorScheme colorScheme,
+    required ThemeData theme,
+    required bool canEdit,
+  }) {
+    return RefreshIndicator(
+      onRefresh: () => provider.carregarGiras(),
+      child: provider.isLoading && giras.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : giras.isEmpty
+              ? SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_motion_outlined,
+                            size: 48,
+                            color: colorScheme.outline,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            provider.termoBusca.isNotEmpty
+                                ? 'Nenhuma playlist de Gira encontrada.'
+                                : 'Nenhuma playlist de Gira criada ainda.',
+                            style: theme.textTheme.bodyMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  itemCount: giras.length,
+                  itemBuilder: (context, index) {
+                    final gira = giras[index];
+                    final dataStr = gira.dataCriacao != null
+                        ? DateFormat('dd/MM/yyyy').format(gira.dataCriacao!)
+                        : '';
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () {
+                          if (gira.id != null) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => GiraDetailScreen(giraId: gira.id!),
+                              ),
+                            );
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 16,
+                                backgroundColor: colorScheme.secondaryContainer,
+                                foregroundColor: colorScheme.onSecondaryContainer,
+                                child: const Icon(Icons.auto_awesome_motion_rounded, size: 18),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      gira.nomeGira,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${gira.playlist.length} playlist(s)${dataStr.isNotEmpty ? ' • $dataStr' : ''}',
+                                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 12),
+                                    ),
+                                    if (gira.descricao != null && gira.descricao!.isNotEmpty) ...[
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        gira.descricao!,
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          fontSize: 11,
+                                          color: colorScheme.onSurfaceVariant,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (canEdit)
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_vert_rounded, size: 18),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onSelected: (value) {
+                                    if (value == 'edit') {
+                                      GiraFormDialog.show(context, gira: gira);
+                                    } else if (value == 'delete') {
+                                      _confirmDeleteGira(context, gira);
+                                    }
+                                  },
+                                  itemBuilder: (context) => [
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit_outlined, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('Editar Gira', style: TextStyle(fontSize: 13)),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                          SizedBox(width: 8),
+                                          Text('Deletar', style: TextStyle(color: Colors.red, fontSize: 13)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              if (!canEdit)
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: colorScheme.outline,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

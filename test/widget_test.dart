@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:batuque/main.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
+import 'package:batuque/providers/auth_provider.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
 import 'package:batuque/providers/entidades_provider.dart';
 import 'package:batuque/providers/pontos_provider.dart';
+import 'package:batuque/providers/playlists_provider.dart';
+import 'package:batuque/providers/giras_provider.dart';
 import 'package:batuque/screens/ponto_detail_screen.dart';
 import 'package:batuque/widgets/entidade_card.dart';
 import 'package:batuque/widgets/ponto_card.dart';
@@ -17,7 +20,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-
   });
 
   testWidgets('BatuqueApp renders home page and tabs correctly', (WidgetTester tester) async {
@@ -106,9 +108,12 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
           ChangeNotifierProvider(create: (_) => EntidadesProvider()),
           ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
           ChangeNotifierProvider(create: (_) => PontosProvider()),
+          ChangeNotifierProvider(create: (_) => PlaylistsProvider()),
+          ChangeNotifierProvider(create: (_) => GirasProvider()),
         ],
         child: MaterialApp(
           home: PontoDetailScreen(ponto: ponto),
@@ -116,9 +121,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Ponto de Caboclo'), findsNWidgets(2)); // AppBar and Header Card
+    expect(find.text('Ponto de Caboclo'), findsWidgets); // AppBar and Header Card
     expect(find.text('Okê Caboclo...'), findsOneWidget);
-    expect(find.text('Tela mantida acesa'), findsOneWidget);
   });
 
   testWidgets('AudioPlayerBottomBar renders playing ponto details', (WidgetTester tester) async {

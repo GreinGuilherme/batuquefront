@@ -17,7 +17,7 @@ class AuthService {
   /// Cabeçalhos limpos sem Authorization ou Cookie para chamadas não autenticadas
   static const Map<String, String> _unauthenticatedHeaders = {
     'Content-Type': 'application/json; charset=UTF-8',
-    'Accept': 'application/json, text/plain',
+    'Accept': 'application/json, text/plain, */*',
     'x-app-batuque': 'GiraSegura2026',
     'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
   };
@@ -338,7 +338,7 @@ class AuthService {
         uri,
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json, text/plain',
+          'Accept': 'application/json, text/plain, */*',
           'x-app-batuque': 'GiraSegura2026',
         },
         body: jsonEncode({'refreshToken': refreshToken}),
@@ -444,7 +444,7 @@ class AuthService {
 
     final headers = <String, String>{
       'Content-Type': 'application/json; charset=UTF-8',
-      'Accept': 'application/json, text/plain',
+      'Accept': 'application/json, text/plain, */*',
       'x-app-batuque': 'GiraSegura2026',
       'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
     };
@@ -452,9 +452,6 @@ class AuthService {
     if (token != null && token.isNotEmpty) {
       final bearerToken = token.startsWith('Bearer ') ? token : 'Bearer $token';
       headers['Authorization'] = bearerToken;
-      headers['authorization'] = bearerToken;
-      headers['token'] = token;
-      headers['x-access-token'] = token;
     }
     if (cookie != null && cookie.isNotEmpty) {
       headers['Cookie'] = cookie;
@@ -524,6 +521,4 @@ class AuthService {
     } catch (_) {}
     return null;
   }
-
-
 }
