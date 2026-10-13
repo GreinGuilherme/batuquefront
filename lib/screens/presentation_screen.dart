@@ -25,28 +25,34 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
   Duration _currentElapsed = Duration.zero;
 
   bool _isManualScrolling = false;
-  bool _isDraggingScrollbar = false;
-  double _scrollbarDragY = 0.0;
-  String _draggedPontoName = '';
+
+  double _calculateThumbHeight(double trackHeight) {
+    if (!_scrollController.hasClients) return 40.0;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) return trackHeight;
+    final viewportDimension = _scrollController.position.viewportDimension;
+    final totalHeight = maxExtent + viewportDimension;
+    return (viewportDimension / totalHeight * trackHeight).clamp(30.0, trackHeight);
+  }
 
   void _onScrollbarDrag(double dy, double trackHeight) {
     if (!_scrollController.hasClients) return;
     final maxExtent = _scrollController.position.maxScrollExtent;
     if (maxExtent <= 0) return;
 
-    final double progress = (dy / trackHeight).clamp(0.0, 1.0);
+    final double thumbHeight = _calculateThumbHeight(trackHeight);
+    final double scrollableTrackHeight = trackHeight - thumbHeight;
+
+    final double thumbTop = scrollableTrackHeight > 0
+        ? (dy - thumbHeight / 2).clamp(0.0, scrollableTrackHeight)
+        : 0.0;
+
+    final double progress = scrollableTrackHeight > 0
+        ? (thumbTop / scrollableTrackHeight)
+        : (dy / trackHeight).clamp(0.0, 1.0);
+
     final double targetOffset = progress * maxExtent;
     _scrollController.jumpTo(targetOffset);
-
-    if (widget.pontos.isNotEmpty) {
-      final int index = (progress * (widget.pontos.length - 1)).round().clamp(0, widget.pontos.length - 1);
-      setState(() {
-        _isManualScrolling = true;
-        _isDraggingScrollbar = true;
-        _scrollbarDragY = dy.clamp(30.0, trackHeight - 30.0);
-        _draggedPontoName = widget.pontos[index].ponto.nomePonto;
-      });
-    }
   }
 
   @override
@@ -255,7 +261,7 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
               },
             ),
           ),
-          // Custom interactive scrollbar track on the right side
+          // Custom interactive scrollbar track and position marker (thumb) on the right side
           Positioned(
             right: 0,
             top: 0,
@@ -272,56 +278,55 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
                   onVerticalDragUpdate: (details) {
                     _onScrollbarDrag(details.localPosition.dy, trackHeight);
                   },
-                  onVerticalDragEnd: (_) {
-                    setState(() {
-                      _isManualScrolling = false;
-                      _isDraggingScrollbar = false;
-                    });
-                  },
-                  onVerticalDragCancel: () {
-                    setState(() {
-                      _isManualScrolling = false;
-                      _isDraggingScrollbar = false;
-                    });
-                  },
-                  child: Container(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      width: 6,
-                      height: trackHeight,
-                      margin: const EdgeInsets.only(right: 6),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
+                  child: AnimatedBuilder(
+                    animation: _scrollController,
+                    builder: (context, child) {
+                      final double maxExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0.0;
+                      final double currentOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                      
+                      double thumbHeight = 40.0;
+                      double thumbTop = 0.0;
+                      if (maxExtent > 0 && trackHeight > thumbHeight) {
+                        thumbHeight = _calculateThumbHeight(trackHeight);
+                        final double scrollableTrackHeight = trackHeight - thumbHeight;
+                        final double progress = (currentOffset / maxExtent).clamp(0.0, 1.0);
+                        thumbTop = progress * scrollableTrackHeight;
+                      }
+
+                      return Container(
+                        alignment: Alignment.centerRight,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: trackHeight,
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            Positioned(
+                              right: 4,
+                              top: thumbTop,
+                              child: Container(
+                                width: 10,
+                                height: thumbHeight,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 );
               },
             ),
           ),
-          // Floating popup box showing ponto name when dragging scrollbar
-          if (_isDraggingScrollbar && _draggedPontoName.isNotEmpty)
-            Positioned(
-              right: 44,
-              top: _scrollbarDragY - 25,
-              child: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(8),
-                color: Theme.of(context).colorScheme.primary,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  child: Text(
-                    _draggedPontoName,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
           Positioned(
             bottom: 16,
             right: 48,
