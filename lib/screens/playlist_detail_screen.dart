@@ -428,6 +428,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               child: const Icon(Icons.arrow_upward_rounded),
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       body: RefreshIndicator(
         onRefresh: () => playlistsProvider.carregarPlaylists(),
         child: CustomScrollView(
@@ -1342,6 +1343,31 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       );
                                       playlistsProvider.salvarPlaylist(
                                         playlist.id!,
+                                      );
+                                    },
+                                  ),
+                                if (canEdit)
+                                  IconButton(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    iconSize: 20,
+                                    icon: Icon(
+                                      Icons.edit_outlined,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    tooltip: 'Editar Ponto',
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => PontoDetailScreen(
+                                            ponto: ponto,
+                                            startInEditMode: true,
+                                          ),
+                                        ),
                                       );
                                     },
                                   ),
