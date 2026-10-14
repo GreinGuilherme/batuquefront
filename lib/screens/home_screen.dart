@@ -5,6 +5,7 @@ import '../providers/theme_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/playlists_provider.dart';
+import '../providers/giras_provider.dart';
 import '../services/stomp_service.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 import 'entidades_screen.dart';
@@ -34,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
           entidadesProvider: context.read<EntidadesProvider>(),
           pontosProvider: context.read<PontosProvider>(),
           playlistsProvider: context.read<PlaylistsProvider>(),
+          girasProvider: context.read<GirasProvider>(),
           token: auth.token,
         );
       }

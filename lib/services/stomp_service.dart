@@ -6,6 +6,7 @@ import '../models/sync_event.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/playlists_provider.dart';
+import '../providers/giras_provider.dart';
 
 class StompService {
   static StompClient? _stompClient;
@@ -21,6 +22,7 @@ class StompService {
     required EntidadesProvider entidadesProvider,
     required PontosProvider pontosProvider,
     required PlaylistsProvider playlistsProvider,
+    GirasProvider? girasProvider,
     String? token, // Opcional caso use autenticação no handshake
   }) {
     if (_stompClient != null) {
@@ -89,6 +91,26 @@ class StompService {
               }
             },
           );
+
+          // Inscreve no tópico de Giras
+          if (girasProvider != null) {
+            _stompClient?.subscribe(
+              destination: '/topic/gira',
+              callback: (StompFrame frame) {
+                _log('📥 [STOMP /topic/gira] JSON Recebido:\n${frame.body}');
+                if (frame.body != null) {
+                  try {
+                    final json = jsonDecode(frame.body!);
+                    final event = SyncEvent.fromJson(json);
+                    _log('🔄 SyncEvent Gira: acao="${event.acao}", dados=${event.dados}');
+                    girasProvider.sincronizar(event);
+                  } catch (e, stack) {
+                    _log('❌ Erro ao decodificar SyncEvent de Gira: $e\n$stack');
+                  }
+                }
+              },
+            );
+          }
         },
         onDisconnect: (StompFrame frame) {
           _log('🛑 STOMP Desconectado.');

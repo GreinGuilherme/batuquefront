@@ -48,23 +48,49 @@ class GirasProvider extends ChangeNotifier {
     await carregarGiras();
   }
 
+  /// Método para sincronizar com eventos do WebSocket/STOMP
   void sincronizar(SyncEvent event) {
+    if (kDebugMode) {
+      debugPrint('🔄 [GirasProvider.sincronizar] Ação: "${event.acao}", Dados: ${event.dados}');
+    }
+
     if (event.acao == "CREATE") {
-      final gira = Gira.fromJson(event.dados as Map<String, dynamic>);
-      final index = _giras.indexWhere((g) => g.id == gira.id);
-      if (index == -1) {
-        _giras.add(gira);
+      if (event.dados is Map<String, dynamic>) {
+        final gira = Gira.fromJson(event.dados as Map<String, dynamic>);
+        if (gira.id == null) {
+          debugPrint('⚠️ [GirasProvider] ATENÇÃO: Gira criada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [GirasProvider] Nova Gira sincronizada: ID=${gira.id}, Nome="${gira.nomeGira}"');
+        }
+        final index = _giras.indexWhere((g) => g.id == gira.id);
+        if (index == -1) {
+          _giras.add(gira);
+        } else {
+          _giras[index] = gira;
+        }
+      } else {
+        debugPrint('⚠️ [GirasProvider] Dados para CREATE não são Map: ${event.dados}');
       }
     } else if (event.acao == "UPDATE") {
-      final gira = Gira.fromJson(event.dados as Map<String, dynamic>);
-      final index = _giras.indexWhere((g) => g.id == gira.id);
-      if (index != -1) {
-        _giras[index] = gira;
+      if (event.dados is Map<String, dynamic>) {
+        final gira = Gira.fromJson(event.dados as Map<String, dynamic>);
+        if (gira.id == null) {
+          debugPrint('⚠️ [GirasProvider] ATENÇÃO: Gira atualizada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [GirasProvider] Gira atualizada sincronizada: ID=${gira.id}, Nome="${gira.nomeGira}"');
+        }
+        final index = _giras.indexWhere((g) => g.id == gira.id);
+        if (index != -1) {
+          _giras[index] = gira;
+        } else {
+          _giras.add(gira);
+        }
       } else {
-        _giras.add(gira);
+        debugPrint('⚠️ [GirasProvider] Dados para UPDATE não são Map: ${event.dados}');
       }
     } else if (event.acao == "DELETE") {
       final id = event.idParaDeletar;
+      debugPrint('🗑️ [GirasProvider] Gira deletada sincronizada: ID=$id');
       if (id != null) {
         _giras.removeWhere((g) => g.id == id);
       }
