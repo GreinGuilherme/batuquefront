@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/entidades_provider.dart';
+import '../providers/pontos_provider.dart';
+import '../providers/playlists_provider.dart';
+import '../services/stomp_service.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 import 'entidades_screen.dart';
 import 'pontos_screen.dart';
@@ -23,6 +27,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final auth = context.read<AuthProvider>();
+        StompService.connect(
+          entidadesProvider: context.read<EntidadesProvider>(),
+          pontosProvider: context.read<PontosProvider>(),
+          playlistsProvider: context.read<PlaylistsProvider>(),
+          token: auth.token,
+        );
+      }
+    });
   }
 
   @override

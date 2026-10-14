@@ -71,16 +71,13 @@ class StompService {
             },
           );
         },
-        onWebSocketError: (dynamic error) => debugPrint('Erro no WebSocket: $error'),
-        stompConnectHeaders: {
-          if (token != null) 'Authorization': 'Bearer $token',
-          'x-app-batuque': 'GiraSegura2026',
-          'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
-        },
+        onWebSocketError: (dynamic error) => debugPrint('Erro WS: $error'),
         webSocketConnectHeaders: {
-          if (token != null) 'Authorization': 'Bearer $token',
-          'x-app-batuque': 'GiraSegura2026',
-          'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
+          'X-App-Batuque': 'GiraSegura2026',
+          'User-Agent': 'BatuqueFlutterApp/1.0',
+        },
+        stompConnectHeaders: {
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         },
       ),
     );
