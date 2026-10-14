@@ -63,7 +63,18 @@ class AuthProvider extends ChangeNotifier {
           }
         }
       } else {
-        _isLoggedIn = false;
+        // Tenta renovar silenciosamente se houver um refresh_token salvo
+        bool refreshed = await _authService.refreshTokenSilently();
+        if (refreshed) {
+          final updatedUserData = await _authService.getSavedUserData();
+          _token = updatedUserData['token'];
+          _userEmail = updatedUserData['email'];
+          _userName = updatedUserData['nome'];
+          _userRole = updatedUserData['role'];
+          _isLoggedIn = true;
+        } else {
+          _isLoggedIn = false;
+        }
       }
     } catch (e) {
       _isLoggedIn = false;

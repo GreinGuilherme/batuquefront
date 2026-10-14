@@ -55,7 +55,7 @@ class ApiClient {
             debugPrint('Erro 401: Token expirado. Tentando Refresh Token...');
             
             // Impede requests infinitos em loop (caso o refresh dê 401)
-            if (e.requestOptions.path.contains('/auth/refresh')) {
+            if (e.requestOptions.path.contains('refresh')) {
               return handler.next(e);
             }
 

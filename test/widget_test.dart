@@ -17,6 +17,13 @@ import 'package:batuque/widgets/audio_player_bottom_bar.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+class FakePontosProvider extends PontosProvider {
+  @override
+  Future<bool> atualizarPonto(int id, PontoCantado ponto) async {
+    return true;
+  }
+}
+
 void main() {
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
@@ -123,6 +130,63 @@ void main() {
 
     expect(find.text('Ponto de Caboclo'), findsWidgets); // AppBar and Header Card
     expect(find.text('Okê Caboclo...'), findsOneWidget);
+  });
+
+  testWidgets('PontoDetailScreen returns to source screen when editing and returnToSourceOnSave is true', (WidgetTester tester) async {
+    final ponto = PontoCantado(
+      id: 1,
+      nomePonto: 'Ponto Origem',
+      pontoLetra: 'Letra Origem',
+      audioUrl: '',
+    );
+
+    bool? returnedResult;
+
+    final fakePontosProvider = FakePontosProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
+          ChangeNotifierProvider(create: (_) => EntidadesProvider()),
+          ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
+          ChangeNotifierProvider<PontosProvider>.value(value: fakePontosProvider),
+          ChangeNotifierProvider(create: (_) => PlaylistsProvider()),
+          ChangeNotifierProvider(create: (_) => GirasProvider()),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () async {
+                  returnedResult = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => PontoDetailScreen(
+                        ponto: ponto,
+                        startInEditMode: true,
+                        returnToSourceOnSave: true,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Abrir Edição'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Abrir Edição'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar Ponto'), findsOneWidget);
+
+    // Tap Save icon button
+    await tester.tap(find.byTooltip('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(returnedResult, isTrue);
   });
 
   testWidgets('AudioPlayerBottomBar renders playing ponto details', (WidgetTester tester) async {

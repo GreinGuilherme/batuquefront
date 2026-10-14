@@ -9,11 +9,13 @@ import '../models/ponto_item.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/giras_provider.dart';
 import '../providers/playlists_provider.dart';
+import '../providers/pontos_provider.dart';
 import '../providers/audio_player_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/gira_form_dialog.dart';
 import '../widgets/audio_player_bottom_bar.dart';
 import 'playlist_detail_screen.dart';
+import 'ponto_detail_screen.dart';
 import 'presentation_screen.dart';
 
 class GiraDetailScreen extends StatefulWidget {
@@ -1581,12 +1583,53 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                                               : Icons.keyboard_arrow_down_rounded,
                                           color: colorScheme.onSurfaceVariant,
                                         ),
+                                        tooltip: isPontoExpanded
+                                            ? 'Recolher Letra'
+                                            : 'Expandir Letra',
                                         onPressed: () {
                                           if (p.id != null) {
                                             _toggleExpandPonto(p.id!);
                                           }
                                         },
                                       ),
+                                      if (canEdit)
+                                        IconButton(
+                                          constraints: const BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          visualDensity: VisualDensity.compact,
+                                          iconSize: 20,
+                                          icon: Icon(
+                                            Icons.edit_outlined,
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
+                                          tooltip: 'Editar Ponto',
+                                          onPressed: () async {
+                                            final result =
+                                                await Navigator.of(context)
+                                                    .push(
+                                              MaterialPageRoute(
+                                                builder: (context) =>
+                                                    PontoDetailScreen(
+                                                  ponto: p,
+                                                  startInEditMode: true,
+                                                  returnToSourceOnSave: true,
+                                                ),
+                                              ),
+                                            );
+                                            if (result == true && mounted) {
+                                              girasProvider.carregarGiras();
+                                              context
+                                                  .read<PlaylistsProvider>()
+                                                  .carregarPlaylists();
+                                              context
+                                                  .read<PontosProvider>()
+                                                  .carregarPontos();
+                                            }
+                                          },
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -1595,30 +1638,94 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                                 const Divider(height: 1),
                                 Padding(
                                   padding: const EdgeInsets.all(10.0),
-                                  child: p.pontoLetra.isNotEmpty
-                                      ? SelectableText(
-                                          p.pontoLetra,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            height: 1.4,
-                                            fontSize: (theme.textTheme
-                                                        .bodyMedium?.fontSize ??
-                                                    14.0) *
-                                                _letrasFontScale,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Letra do Ponto',
+                                            style: theme.textTheme.labelLarge
+                                                ?.copyWith(
+                                              color: colorScheme.primary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        )
-                                      : Text(
-                                          'Letra não cadastrada.',
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                            fontStyle: FontStyle.italic,
-                                            color: theme.hintColor,
-                                            fontSize: (theme.textTheme
-                                                        .bodyMedium?.fontSize ??
-                                                    14.0) *
-                                                _letrasFontScale,
+                                          InkWell(
+                                            onTap: () async {
+                                              final result =
+                                                  await Navigator.of(context)
+                                                      .push(
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      PontoDetailScreen(
+                                                    ponto: p,
+                                                    returnToSourceOnSave: true,
+                                                  ),
+                                                ),
+                                              );
+                                              if (result == true && mounted) {
+                                                girasProvider.carregarGiras();
+                                                context
+                                                    .read<PlaylistsProvider>()
+                                                    .carregarPlaylists();
+                                                context
+                                                    .read<PontosProvider>()
+                                                    .carregarPontos();
+                                              }
+                                            },
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 4,
+                                                vertical: 2,
+                                              ),
+                                              child: Text(
+                                                'Ver detalhes',
+                                                style: theme
+                                                    .textTheme.labelMedium
+                                                    ?.copyWith(
+                                                  color: colorScheme.secondary,
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      p.pontoLetra.isNotEmpty
+                                          ? SelectableText(
+                                              p.pontoLetra,
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                height: 1.4,
+                                                fontSize: (theme.textTheme
+                                                            .bodyMedium
+                                                            ?.fontSize ??
+                                                        14.0) *
+                                                    _letrasFontScale,
+                                              ),
+                                            )
+                                          : Text(
+                                              'Letra não cadastrada.',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                fontStyle: FontStyle.italic,
+                                                color: theme.hintColor,
+                                                fontSize: (theme.textTheme
+                                                            .bodyMedium
+                                                            ?.fontSize ??
+                                                        14.0) *
+                                                    _letrasFontScale,
+                                              ),
+                                            ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ],

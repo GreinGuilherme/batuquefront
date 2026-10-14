@@ -1363,15 +1363,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       color: colorScheme.onSurfaceVariant,
                                     ),
                                     tooltip: 'Editar Ponto',
-                                    onPressed: () {
-                                      Navigator.of(context).push(
+                                    onPressed: () async {
+                                      final result =
+                                          await Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (context) => PontoDetailScreen(
+                                          builder: (context) =>
+                                              PontoDetailScreen(
                                             ponto: ponto,
                                             startInEditMode: true,
+                                            returnToSourceOnSave: true,
                                           ),
                                         ),
                                       );
+                                      if (result == true && mounted) {
+                                        playlistsProvider.carregarPlaylists();
+                                        context
+                                            .read<PontosProvider>()
+                                            .carregarPontos();
+                                      }
                                     },
                                   ),
                                 if (canEdit && !isFiltered)
@@ -1415,13 +1424,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         ),
                       ),
                       InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
+                        onTap: () async {
+                          final result = await Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  PontoDetailScreen(ponto: ponto),
+                              builder: (context) => PontoDetailScreen(
+                                ponto: ponto,
+                                returnToSourceOnSave: true,
+                              ),
                             ),
                           );
+                          if (result == true && mounted) {
+                            playlistsProvider.carregarPlaylists();
+                            context.read<PontosProvider>().carregarPontos();
+                          }
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(

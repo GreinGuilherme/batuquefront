@@ -12,8 +12,14 @@ import '../widgets/audio_player_bottom_bar.dart';
 class PontoDetailScreen extends StatefulWidget {
   final PontoCantado? ponto;
   final bool startInEditMode;
+  final bool returnToSourceOnSave;
 
-  const PontoDetailScreen({super.key, this.ponto, this.startInEditMode = false});
+  const PontoDetailScreen({
+    super.key,
+    this.ponto,
+    this.startInEditMode = false,
+    this.returnToSourceOnSave = false,
+  });
 
   @override
   State<PontoDetailScreen> createState() => _PontoDetailScreenState();
@@ -215,11 +221,15 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
     setState(() => _isSaving = false);
 
     if (sucesso) {
-      if (!isEditing) {
+      if (!isEditing || widget.returnToSourceOnSave) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ponto cadastrado com sucesso!'),
+          SnackBar(
+            content: Text(
+              isEditing
+                  ? 'Ponto atualizado com sucesso!'
+                  : 'Ponto cadastrado com sucesso!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -352,7 +362,7 @@ class _PontoDetailScreenState extends State<PontoDetailScreen> {
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.redAccent),
                 onPressed: () {
-                  if (widget.ponto == null) {
+                  if (widget.ponto == null || widget.startInEditMode) {
                     Navigator.of(context).pop();
                   } else {
                     setState(() {

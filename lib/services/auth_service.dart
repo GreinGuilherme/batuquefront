@@ -5,6 +5,7 @@ import 'api_config.dart';
 
 class AuthService {
   final http.Client _client;
+  Future<bool>? _refreshFuture;
 
   AuthService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -13,14 +14,6 @@ class AuthService {
   static const String _userEmailKey = 'user_email';
   static const String _userNameKey = 'user_name';
   static const String _userRoleKey = 'user_role';
-
-  /// Cabeçalhos limpos sem Authorization ou Cookie para chamadas não autenticadas
-  static const Map<String, String> _unauthenticatedHeaders = {
-    'Content-Type': 'application/json; charset=UTF-8',
-    'Accept': 'application/json, text/plain, */*',
-    'x-app-batuque': 'GiraSegura2026',
-    'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
-  };
 
   /// Retorna a URI usando a URL base configurada em ApiConfig
   Uri _getUri(String endpoint) {
@@ -81,8 +74,11 @@ class AuthService {
           if (data.containsKey('email') && data['email'].toString().contains('@')) {
             userEmail = data['email'].toString();
           }
-          if (data.containsKey('refreshToken')) {
-            refreshToken = data['refreshToken'];
+          for (final key in ['tokenRefresh', 'refreshToken', 'refresh_token', 'token_refresh']) {
+            if (data[key] != null && data[key].toString().isNotEmpty) {
+              refreshToken = data[key].toString();
+              break;
+            }
           }
         } else {
           token = responseBody.replaceAll('"', '');
@@ -323,8 +319,20 @@ class AuthService {
     return prefix[0].toUpperCase() + prefix.substring(1);
   }
 
-  /// Rota para renovar o token. O Backend deve receber o refresh_token e devolver um novo access_token
+  /// Rota para renovar o token. O Backend deve receber o refresh_token e devolver um novo access_token (e opcionalmente novo refresh_token)
   Future<bool> refreshTokenSilently() async {
+    if (_refreshFuture != null) {
+      return await _refreshFuture!;
+    }
+    _refreshFuture = _doRefreshTokenSilently();
+    try {
+      return await _refreshFuture!;
+    } finally {
+      _refreshFuture = null;
+    }
+  }
+
+  Future<bool> _doRefreshTokenSilently() async {
     final prefs = await SharedPreferences.getInstance();
     final refreshToken = prefs.getString('refresh_token');
 
@@ -333,31 +341,63 @@ class AuthService {
     }
 
     try {
-      final uri = _getUri('/auth/refresh'); // Rota a ser criada no Spring Boot
-      final response = await _client.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Accept': 'application/json, text/plain, */*',
-          'x-app-batuque': 'GiraSegura2026',
-        },
-        body: jsonEncode({'refreshToken': refreshToken}),
-      ).timeout(ApiConfig.timeout);
+      final headers = {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json, text/plain, */*',
+        'x-app-batuque': 'GiraSegura2026',
+        'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
+      };
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        
-        final newToken = data['token'] ?? data['accessToken'];
-        final newRefreshToken = data['refreshToken']; // Opcional, se o back mandar um novo
+      final bodyJson = jsonEncode({
+        'tokenRefresh': refreshToken,
+        'refreshToken': refreshToken,
+        'refresh_token': refreshToken,
+      });
 
-        if (newToken != null && newToken.toString().isNotEmpty) {
-           await prefs.setString(_tokenKey, newToken);
-           await prefs.setString(_cookieKey, 'jwt=$newToken');
-           
-           if (newRefreshToken != null && newRefreshToken.toString().isNotEmpty) {
-             await prefs.setString('refresh_token', newRefreshToken);
-           }
-           return true;
+      Uri uri = _getUri('/auth/refresh');
+      var response = await _client
+          .post(
+            uri,
+            headers: headers,
+            body: bodyJson,
+          )
+          .timeout(ApiConfig.timeout);
+
+      // Fallback para /refresh caso o controller não utilize o prefixo /auth
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        uri = _getUri('/refresh');
+        response = await _client
+            .post(
+              uri,
+              headers: headers,
+              body: bodyJson,
+            )
+            .timeout(ApiConfig.timeout);
+      }
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final responseBody = utf8.decode(response.bodyBytes).trim();
+        if (responseBody.isEmpty) return false;
+
+        String? newToken;
+        String? newRefreshToken;
+
+        if (responseBody.startsWith('{')) {
+          final Map<String, dynamic> data = jsonDecode(responseBody);
+          newToken = data['token'] ?? data['accessToken'] ?? data['jwt'] ?? data['tokenAcesso'];
+          newRefreshToken = data['tokenRefresh'] ?? data['refreshToken'] ?? data['refresh_token'] ?? data['token_refresh'];
+        } else {
+          newToken = responseBody.replaceAll('"', '');
+        }
+
+        if (newToken != null && newToken.isNotEmpty) {
+          await prefs.setString(_tokenKey, newToken);
+          await prefs.setString(_cookieKey, 'jwt=$newToken');
+
+          if (newRefreshToken != null && newRefreshToken.isNotEmpty) {
+            await prefs.setString('refresh_token', newRefreshToken);
+          }
+          return true;
         }
       }
       return false;
@@ -436,10 +476,20 @@ class AuthService {
     await prefs.remove('refresh_token');
   }
 
-  /// Retorna os headers com Authorization e Cookie apenas para chamadas autenticadas
+  /// Retorna os headers com Authorization e Cookie apenas para chamadas autenticadas.
+  /// Se o token JWT estiver expirado ou prestes a expirar (30s), tenta renová-lo silenciosamente usando o refresh_token.
   Future<Map<String, String>> getAuthHeaders() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(_tokenKey);
+    var token = prefs.getString(_tokenKey);
+
+    // Se o token estiver expirado ou prestes a expirar nos próximos 30 segundos, renova automaticamente
+    if (token != null && token.isNotEmpty && isTokenExpired(token, thresholdSeconds: 30)) {
+      final refreshed = await refreshTokenSilently();
+      if (refreshed) {
+        token = prefs.getString(_tokenKey);
+      }
+    }
+
     final cookie = prefs.getString(_cookieKey);
 
     final headers = <String, String>{
@@ -496,7 +546,7 @@ class AuthService {
     return utf8.decode(base64Url.decode(output));
   }
 
-  static bool isTokenExpired(String token) {
+  static bool isTokenExpired(String token, {int thresholdSeconds = 0}) {
     try {
       final payload = parseJwt(token);
       if (!payload.containsKey('exp')) return false;
@@ -504,7 +554,8 @@ class AuthService {
       final exp = payload['exp'];
       if (exp is int) {
         final expirationDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
-        return DateTime.now().isAfter(expirationDate);
+        final nowWithThreshold = DateTime.now().add(Duration(seconds: thresholdSeconds));
+        return nowWithThreshold.isAfter(expirationDate);
       }
       return false;
     } catch (_) {
