@@ -24,7 +24,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
   @override
   bool get wantKeepAlive => true;
 
-  String _selectedTab = 'playlist'; // 'playlist' ou 'gira'
+  int _selectedTabIndex = 0; // 0 = 'playlist', 1 = 'gira'
+  late final PageController _pageController;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -40,6 +41,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _selectedTabIndex);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<GirasProvider>().carregarGiras();
@@ -49,8 +51,22 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
 
   @override
   void dispose() {
+    _pageController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onTabSelected(int index) {
+    if (_selectedTabIndex == index) return;
+    setState(() {
+      _selectedTabIndex = index;
+      _searchController.clear();
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+    );
   }
 
   void _toggleFilterPanel() {
@@ -83,7 +99,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
       _appliedEntidades.clear();
       _searchController.clear();
     });
-    if (_selectedTab == 'playlist') {
+    if (_selectedTabIndex == 0) {
       context.read<PlaylistsProvider>().filtrarPlaylists('');
     } else {
       context.read<GirasProvider>().filtrarGiras('');
@@ -264,7 +280,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                     controller: _searchController,
                     style: const TextStyle(fontSize: 13),
                     decoration: InputDecoration(
-                      hintText: _selectedTab == 'playlist'
+                      hintText: _selectedTabIndex == 0
                           ? 'Buscar playlist...'
                           : 'Buscar playlist de Gira...',
                       hintStyle: const TextStyle(fontSize: 13),
@@ -274,7 +290,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                               icon: const Icon(Icons.clear_rounded, size: 18),
                               onPressed: () {
                                 _searchController.clear();
-                                if (_selectedTab == 'playlist') {
+                                if (_selectedTabIndex == 0) {
                                   playlistsProvider.filtrarPlaylists('');
                                 } else {
                                   girasProvider.filtrarGiras('');
@@ -291,7 +307,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                       ),
                     ),
                     onChanged: (value) {
-                      if (_selectedTab == 'playlist') {
+                      if (_selectedTabIndex == 0) {
                         playlistsProvider.filtrarPlaylists(value);
                       } else {
                         girasProvider.filtrarGiras(value);
@@ -303,7 +319,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                   const SizedBox(width: 8),
                   IconButton.filled(
                     onPressed: () async {
-                      if (_selectedTab == 'playlist') {
+                      if (_selectedTabIndex == 0) {
                         await PlaylistFormDialog.show(context);
                         if (context.mounted) {
                           context.read<PlaylistsProvider>().carregarPlaylists();
@@ -323,310 +339,396 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                       minimumSize: const Size(38, 38),
                       padding: EdgeInsets.zero,
                     ),
-                    tooltip: _selectedTab == 'playlist' ? 'Nova Playlist' : 'Nova Gira',
+                    tooltip: _selectedTabIndex == 0 ? 'Nova Playlist' : 'Nova Gira',
                   ),
                 ],
               ],
             ),
           ),
 
-          // Area do Circulo: Botoes de Selecao (Playlist vs Gira)
+          // Botões de Seleção (Playlist vs Gira) - Fino e com padrão de seleção do menu do rodapé (pill)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: SizedBox(
-              width: double.infinity,
-              height: 38,
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment<String>(
-                    value: 'playlist',
-                    label: Text('Playlist', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    icon: Icon(Icons.queue_music_rounded, size: 18),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'gira',
-                    label: Text('Gira', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    icon: Icon(Icons.auto_awesome_motion_rounded, size: 18),
-                  ),
-                ],
-                selected: {_selectedTab},
-                onSelectionChanged: (Set<String> newSelection) {
-                  setState(() {
-                    _selectedTab = newSelection.first;
-                    _searchController.clear();
-                  });
-                },
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Container(
+              height: 34,
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(20),
               ),
-            ),
-          ),
-
-          // Filter row (apenas para aba de Playlist)
-          if (_selectedTab == 'playlist')
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              padding: const EdgeInsets.all(2),
               child: Row(
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _toggleFilterPanel,
-                    icon: Icon(
-                      _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
-                      size: 15,
-                    ),
-                    label: Text(
-                      totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      minimumSize: const Size(0, 28),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
-                          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                          : null,
-                    ),
-                  ),
-                  if (totalFiltrosAtivos > 0) ...[
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: _clearFilters,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _onTabSelected(0),
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        decoration: BoxDecoration(
+                          color: _selectedTabIndex == 0
+                              ? colorScheme.secondaryContainer
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        alignment: Alignment.center,
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.close_rounded,
-                              size: 14,
-                              color: theme.colorScheme.error,
+                              Icons.queue_music_rounded,
+                              size: 16,
+                              color: _selectedTabIndex == 0
+                                  ? colorScheme.onSecondaryContainer
+                                  : colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 2),
+                            const SizedBox(width: 6),
                             Text(
-                              'Limpar filtros',
+                              'Playlist',
                               style: TextStyle(
-                                fontSize: 11,
-                                color: theme.colorScheme.error,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                fontWeight: _selectedTabIndex == 0
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: _selectedTabIndex == 0
+                                    ? colorScheme.onSecondaryContainer
+                                    : colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _onTabSelected(1),
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        decoration: BoxDecoration(
+                          color: _selectedTabIndex == 1
+                              ? colorScheme.secondaryContainer
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome_motion_rounded,
+                              size: 16,
+                              color: _selectedTabIndex == 1
+                                  ? colorScheme.onSecondaryContainer
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Gira',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: _selectedTabIndex == 1
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: _selectedTabIndex == 1
+                                    ? colorScheme.onSecondaryContainer
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
+          ),
 
-          // Cascading Filter Panel (Collapsible para tab de Playlist)
-          if (_selectedTab == 'playlist')
-            AnimatedCrossFade(
-              firstChild: const SizedBox.shrink(),
-              secondChild: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+          // PageView permitindo deslizar horizontalmente entre as janelas (0: Playlist, 1: Gira)
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                if (_selectedTabIndex != index) {
+                  setState(() {
+                    _selectedTabIndex = index;
+                    _searchController.clear();
+                  });
+                }
+              },
+              children: [
+                // Aba 0: Playlist de Ponto
+                Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Filtro por Características',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                    // Filter row (apenas para aba de Playlist)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                      child: Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _toggleFilterPanel,
+                            icon: Icon(
+                              _isFilterExpanded ? Icons.filter_alt_off_rounded : Icons.filter_alt_rounded,
+                              size: 15,
+                            ),
+                            label: Text(
+                              totalFiltrosAtivos > 0 ? 'Filtros ($totalFiltrosAtivos)' : 'Filtro',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              minimumSize: const Size(0, 28),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 16),
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          onPressed: () => setState(() => _isFilterExpanded = false),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 8),
-
-                    // Nível 1: Linha
-                    Text(
-                      '1. Linha:',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            color: theme.colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: todasLinhas.map((linha) {
-                        final isSelected = _tempSelectedLinhas.contains(linha);
-                        return FilterChip(
-                          visualDensity: VisualDensity.compact,
-                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                          label: Text(linha, style: const TextStyle(fontSize: 11)),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _tempSelectedLinhas.add(linha);
-                              } else {
-                                _tempSelectedLinhas.remove(linha);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Nível 2: Falange (Cascata)
-                    Text(
-                      '2. Falange:',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            color: theme.colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: todasFalanges.map((falange) {
-                        final isSelected = _tempSelectedFalanges.contains(falange);
-                        return FilterChip(
-                          visualDensity: VisualDensity.compact,
-                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                          label: Text(falange, style: const TextStyle(fontSize: 11)),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _tempSelectedFalanges.add(falange);
-                              } else {
-                                _tempSelectedFalanges.remove(falange);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Nível 3: Entidades (Cascata)
-                    Text(
-                      '3. Entidades:',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                            color: theme.colorScheme.primary,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
-                      children: entidadesNasFalanges.map((entidade) {
-                        if (entidade.id == null) return const SizedBox.shrink();
-                        final isSelected = _tempSelectedEntidades.contains(entidade.id);
-                        return FilterChip(
-                          visualDensity: VisualDensity.compact,
-                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                          label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            setState(() {
-                              if (selected) {
-                                _tempSelectedEntidades.add(entidade.id!);
-                              } else {
-                                _tempSelectedEntidades.remove(entidade.id!);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _tempSelectedLinhas.clear();
-                              _tempSelectedFalanges.clear();
-                              _tempSelectedEntidades.clear();
-                            });
-                          },
-                          style: TextButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          ),
-                          child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
-                        ),
-                        const SizedBox(width: 6),
-                        FilledButton.icon(
-                          onPressed: _applyFilter,
-                          icon: const Icon(Icons.check_rounded, size: 14),
-                          label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
-                          style: FilledButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              backgroundColor: _isFilterExpanded || totalFiltrosAtivos > 0
+                                  ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                                  : null,
                             ),
                           ),
+                          if (totalFiltrosAtivos > 0) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: _clearFilters,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.close_rounded,
+                                      size: 14,
+                                      color: theme.colorScheme.error,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'Limpar filtros',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: theme.colorScheme.error,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // Cascading Filter Panel (Collapsible para tab de Playlist)
+                    AnimatedCrossFade(
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerLow,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.outlineVariant,
+                          ),
                         ),
-                      ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Filtro por Características',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close_rounded, size: 16),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => setState(() => _isFilterExpanded = false),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 8),
+
+                            // Nível 1: Linha
+                            Text(
+                              '1. Linha:',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: todasLinhas.map((linha) {
+                                final isSelected = _tempSelectedLinhas.contains(linha);
+                                return FilterChip(
+                                  visualDensity: VisualDensity.compact,
+                                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                  label: Text(linha, style: const TextStyle(fontSize: 11)),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _tempSelectedLinhas.add(linha);
+                                      } else {
+                                        _tempSelectedLinhas.remove(linha);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 6),
+
+                            // Nível 2: Falange (Cascata)
+                            Text(
+                              '2. Falange:',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: todasFalanges.map((falange) {
+                                final isSelected = _tempSelectedFalanges.contains(falange);
+                                return FilterChip(
+                                  visualDensity: VisualDensity.compact,
+                                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                  label: Text(falange, style: const TextStyle(fontSize: 11)),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _tempSelectedFalanges.add(falange);
+                                      } else {
+                                        _tempSelectedFalanges.remove(falange);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 6),
+
+                            // Nível 3: Entidades (Cascata)
+                            Text(
+                              '3. Entidades:',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: entidadesNasFalanges.map((entidade) {
+                                if (entidade.id == null) return const SizedBox.shrink();
+                                final isSelected = _tempSelectedEntidades.contains(entidade.id);
+                                return FilterChip(
+                                  visualDensity: VisualDensity.compact,
+                                  labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                                  label: Text(entidade.nomeEntidade, style: const TextStyle(fontSize: 11)),
+                                  selected: isSelected,
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      if (selected) {
+                                        _tempSelectedEntidades.add(entidade.id!);
+                                      } else {
+                                        _tempSelectedEntidades.remove(entidade.id!);
+                                      }
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 8),
+
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _tempSelectedLinhas.clear();
+                                      _tempSelectedFalanges.clear();
+                                      _tempSelectedEntidades.clear();
+                                    });
+                                  },
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  ),
+                                  child: const Text('Resetar seleções', style: TextStyle(fontSize: 11)),
+                                ),
+                                const SizedBox(width: 6),
+                                FilledButton.icon(
+                                  onPressed: _applyFilter,
+                                  icon: const Icon(Icons.check_rounded, size: 14),
+                                  label: const Text('Aplicar Filtro', style: TextStyle(fontSize: 11)),
+                                  style: FilledButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                      duration: const Duration(milliseconds: 250),
+                    ),
+
+                    const SizedBox(height: 2),
+
+                    Expanded(
+                      child: _buildPlaylistsListView(
+                        context: context,
+                        provider: playlistsProvider,
+                        playlists: playlists,
+                        colorScheme: colorScheme,
+                        theme: theme,
+                        canEdit: canEdit,
+                        totalFiltrosAtivos: totalFiltrosAtivos,
+                      ),
                     ),
                   ],
                 ),
-              ),
-              crossFadeState: _isFilterExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-              duration: const Duration(milliseconds: 250),
+
+                // Aba 1: Playlist de Gira
+                _buildGirasListView(
+                  context: context,
+                  provider: girasProvider,
+                  giras: giras,
+                  colorScheme: colorScheme,
+                  theme: theme,
+                  canEdit: canEdit,
+                ),
+              ],
             ),
-
-          const SizedBox(height: 2),
-
-          // Lista de Conteúdo (Playlists de Ponto ou Playlists de Gira)
-          Expanded(
-            child: _selectedTab == 'playlist'
-                ? _buildPlaylistsListView(
-                    context: context,
-                    provider: playlistsProvider,
-                    playlists: playlists,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                    canEdit: canEdit,
-                    totalFiltrosAtivos: totalFiltrosAtivos,
-                  )
-                : _buildGirasListView(
-                    context: context,
-                    provider: girasProvider,
-                    giras: giras,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                    canEdit: canEdit,
-                  ),
           ),
         ],
       ),

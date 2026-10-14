@@ -911,7 +911,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                           MaterialPageRoute(
                                             builder: (context) =>
                                                 PresentationScreen(
-                                                  pontos: playlist.pontos,
+                                                  pontos: playlist.pontos
+                                                      .map((p) => p.copyWith(
+                                                          nomePlaylist: playlist.nomePlaylist))
+                                                      .toList(),
                                                   title:
                                                       'Apresentação - ${playlist.nomePlaylist}',
                                                 ),

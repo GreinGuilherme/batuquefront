@@ -246,7 +246,21 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
                   return const SizedBox.shrink();
                 }
 
-                return Card(
+                final currentPlaylistName = pontoItem.nomePlaylist?.trim();
+                String? previousPlaylistName;
+                for (int i = index - 1; i >= 0; i--) {
+                  final prevLetra = widget.pontos[i].ponto.pontoLetra.trim();
+                  if (prevLetra.isNotEmpty) {
+                    previousPlaylistName = widget.pontos[i].nomePlaylist?.trim();
+                    break;
+                  }
+                }
+
+                final bool showPlaylistDivider = currentPlaylistName != null &&
+                    currentPlaylistName.isNotEmpty &&
+                    (previousPlaylistName == null || previousPlaylistName != currentPlaylistName);
+
+                final cardWidget = Card(
                   margin: const EdgeInsets.only(bottom: 24.0),
                   elevation: 2,
                   child: Padding(
@@ -257,6 +271,54 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
                       textAlign: TextAlign.left, // Alinhado à esquerda
                     ),
                   ),
+                );
+
+                if (!showPlaylistDivider) {
+                  return cardWidget;
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            child: Text(
+                              currentPlaylistName,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.8,
+                                  ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    cardWidget,
+                  ],
                 );
               },
             ),
@@ -343,7 +405,7 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -367,7 +429,7 @@ class _PresentationScreenState extends State<PresentationScreen> with SingleTick
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),

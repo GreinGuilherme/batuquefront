@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import '../models/entidade.dart';
 import '../models/gira.dart';
 import '../models/playlist.dart';
 import '../models/ponto_item.dart';
+import '../providers/entidades_provider.dart';
 import '../providers/giras_provider.dart';
 import '../providers/playlists_provider.dart';
 import '../providers/audio_player_provider.dart';
@@ -28,7 +30,64 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _showScrollToTop = false;
   bool _isWakelockEnabled = true;
+  double _letrasFontScale = 1.0;
+
   final Set<int> _expandedPlaylistIds = {};
+  final Set<int> _expandedPontoIds = {};
+
+  // Estado dos filtros em cascata
+  bool _isFilterExpanded = false;
+  Set<String> _tempSelectedLinhas = {};
+  Set<String> _tempSelectedFalanges = {};
+  Set<int> _tempSelectedEntidades = {};
+
+  Set<String> _appliedLinhas = {};
+  Set<String> _appliedFalanges = {};
+  Set<int> _appliedEntidades = {};
+
+  void _increaseFontSize() {
+    setState(() {
+      if (_letrasFontScale < 2.5) _letrasFontScale += 0.1;
+    });
+  }
+
+  void _decreaseFontSize() {
+    setState(() {
+      if (_letrasFontScale > 0.5) _letrasFontScale -= 0.1;
+    });
+  }
+
+  void _toggleFilterPanel() {
+    setState(() {
+      if (!_isFilterExpanded) {
+        _tempSelectedLinhas = Set.from(_appliedLinhas);
+        _tempSelectedFalanges = Set.from(_appliedFalanges);
+        _tempSelectedEntidades = Set.from(_appliedEntidades);
+      }
+      _isFilterExpanded = !_isFilterExpanded;
+    });
+  }
+
+  void _applyFilter() {
+    setState(() {
+      _appliedLinhas = Set.from(_tempSelectedLinhas);
+      _appliedFalanges = Set.from(_tempSelectedFalanges);
+      _appliedEntidades = Set.from(_tempSelectedEntidades);
+      _isFilterExpanded = false;
+    });
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _tempSelectedLinhas.clear();
+      _tempSelectedFalanges.clear();
+      _tempSelectedEntidades.clear();
+      _appliedLinhas.clear();
+      _appliedFalanges.clear();
+      _appliedEntidades.clear();
+      _searchController.clear();
+    });
+  }
 
   @override
   void initState() {
@@ -36,6 +95,11 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _enableWakelock();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<PlaylistsProvider>().carregarPlaylists();
+      context.read<GirasProvider>().carregarGiras();
+    });
   }
 
   Future<void> _enableWakelock() async {
@@ -105,6 +169,38 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
       } else {
         _expandedPlaylistIds.add(id);
       }
+    });
+  }
+
+  void _toggleExpandPonto(int id) {
+    setState(() {
+      if (_expandedPontoIds.contains(id)) {
+        _expandedPontoIds.remove(id);
+      } else {
+        _expandedPontoIds.add(id);
+      }
+    });
+  }
+
+  void _expandAll(List<GiraPlaylistItem> itemsGira) {
+    setState(() {
+      for (final item in itemsGira) {
+        _expandedPlaylistIds.add(item.playlistId);
+        if (item.playlist != null) {
+          for (final pItem in item.playlist!.pontos) {
+            if (pItem.ponto.id != null) {
+              _expandedPontoIds.add(pItem.ponto.id!);
+            }
+          }
+        }
+      }
+    });
+  }
+
+  void _collapseAll() {
+    setState(() {
+      _expandedPlaylistIds.clear();
+      _expandedPontoIds.clear();
     });
   }
 
@@ -194,21 +290,82 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
     );
   }
 
-  List<PontoItem> _obterTodosPontosDaGira(Gira gira, List<Playlist> todasPlaylists) {
+  bool _pontoMatchesFilter(
+    PontoItem item,
+    List<Entidade> entidades,
+    String searchQuery,
+  ) {
+    final ponto = item.ponto;
+
+    // 1. Busca textual (nome ou letra do ponto)
+    if (searchQuery.isNotEmpty) {
+      final matchNome = ponto.nomePonto.toLowerCase().contains(searchQuery);
+      final matchLetra = ponto.pontoLetra.toLowerCase().contains(searchQuery);
+      if (!matchNome && !matchLetra) return false;
+    }
+
+    Entidade? eDoPonto;
+    if (ponto.entidadeId != null) {
+      try {
+        eDoPonto = entidades.firstWhere((e) => e.id == ponto.entidadeId);
+      } catch (_) {}
+    }
+
+    // 2. Linha
+    if (_appliedLinhas.isNotEmpty) {
+      if (eDoPonto == null || !_appliedLinhas.contains(eDoPonto.linhaEntidade)) {
+        return false;
+      }
+    }
+
+    // 3. Falange
+    if (_appliedFalanges.isNotEmpty) {
+      if (eDoPonto == null || !_appliedFalanges.contains(eDoPonto.falange)) {
+        return false;
+      }
+    }
+
+    // 4. Entidades
+    if (_appliedEntidades.isNotEmpty) {
+      if (ponto.entidadeId == null ||
+          !_appliedEntidades.contains(ponto.entidadeId)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  List<PontoItem> _obterTodosPontosDaGira(
+    Gira gira,
+    List<Playlist> todasPlaylists,
+    List<Entidade> entidades,
+    String searchQuery,
+  ) {
     final List<PontoItem> todosPontos = [];
     int ordemGeral = 1;
 
     for (final item in gira.playlist) {
-      Playlist? pl = item.playlist;
-      if (pl == null) {
-        try {
-          pl = todasPlaylists.firstWhere((p) => p.id == item.playlistId);
-        } catch (_) {}
+      Playlist? pl;
+      try {
+        pl = todasPlaylists.firstWhere((p) => p.id == item.playlistId);
+      } catch (_) {}
+
+      if (pl == null ||
+          (pl.pontos.isEmpty &&
+              item.playlist != null &&
+              item.playlist!.pontos.isNotEmpty)) {
+        pl = item.playlist;
       }
 
       if (pl != null) {
         for (final pItem in pl.pontos) {
-          todosPontos.add(pItem.copyWith(ordem: ordemGeral++));
+          if (_pontoMatchesFilter(pItem, entidades, searchQuery)) {
+            todosPontos.add(pItem.copyWith(
+              ordem: ordemGeral++,
+              nomePlaylist: pl.nomePlaylist,
+            ));
+          }
         }
       }
     }
@@ -222,6 +379,7 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
     final girasProvider = context.watch<GirasProvider>();
     final playlistsProvider = context.watch<PlaylistsProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
+    final entidades = context.watch<EntidadesProvider>().todasEntidades;
     final authProvider = context.watch<AuthProvider>();
     final canEdit =
         authProvider.isLoggedIn &&
@@ -245,31 +403,79 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
 
     // Popula playlists completas nos itens da Gira
     final itemsGiraComPlaylists = gira.playlist.map((item) {
-      Playlist? pl = item.playlist;
-      if (pl == null || pl.pontos.isEmpty) {
-        try {
-          pl = todasPlaylists.firstWhere((p) => p.id == item.playlistId);
-        } catch (_) {}
+      Playlist? pl;
+      try {
+        pl = todasPlaylists.firstWhere((p) => p.id == item.playlistId);
+      } catch (_) {}
+
+      if (pl == null ||
+          (pl.pontos.isEmpty &&
+              item.playlist != null &&
+              item.playlist!.pontos.isNotEmpty)) {
+        pl = item.playlist;
       }
       return item.copyWith(playlist: pl);
     }).toList();
 
-    final searchQuery = _searchController.text.trim().toLowerCase();
-    final itemsFiltrados = itemsGiraComPlaylists.where((item) {
-      if (searchQuery.isEmpty) return true;
-      final nomePl = item.playlist?.nomePlaylist.toLowerCase() ?? '';
-      if (nomePl.contains(searchQuery)) return true;
+    // Filtro em cascata - opções disponíveis
+    final todasLinhas =
+        entidades
+            .map((e) => e.linhaEntidade)
+            .where((l) => l.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
-      // Busca também nos pontos da playlist
-      if (item.playlist != null) {
-        return item.playlist!.pontos.any((pi) =>
-            pi.ponto.nomePonto.toLowerCase().contains(searchQuery) ||
-            pi.ponto.pontoLetra.toLowerCase().contains(searchQuery));
-      }
-      return false;
+    final entidadesNasLinhas = _tempSelectedLinhas.isEmpty
+        ? entidades
+        : entidades
+              .where((e) => _tempSelectedLinhas.contains(e.linhaEntidade))
+              .toList();
+
+    final todasFalanges =
+        entidadesNasLinhas
+            .map((e) => e.falange)
+            .where((f) => f.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+
+    final entidadesNasFalanges = _tempSelectedFalanges.isEmpty
+        ? entidadesNasLinhas
+        : entidadesNasLinhas
+              .where((e) => _tempSelectedFalanges.contains(e.falange))
+              .toList();
+
+    final totalFiltrosAtivos =
+        _appliedLinhas.length +
+        _appliedFalanges.length +
+        _appliedEntidades.length;
+
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    final temFiltroOuBuscaAtiva = searchQuery.isNotEmpty || totalFiltrosAtivos > 0;
+
+    final itemsFiltrados = itemsGiraComPlaylists.where((item) {
+      final pl = item.playlist;
+      if (pl == null) return false;
+
+      // Verifica se a playlist ou algum ponto dela combina
+      final matchNomePlaylist = searchQuery.isNotEmpty &&
+          pl.nomePlaylist.toLowerCase().contains(searchQuery);
+
+      final temPontoCorrespondente = pl.pontos.any(
+        (pItem) => _pontoMatchesFilter(pItem, entidades, searchQuery),
+      );
+
+      if (!temFiltroOuBuscaAtiva) return true;
+      return matchNomePlaylist || temPontoCorrespondente;
     }).toList();
 
-    final todosPontosDaGira = _obterTodosPontosDaGira(gira, todasPlaylists);
+    final todosPontosDaGira = _obterTodosPontosDaGira(
+      gira,
+      todasPlaylists,
+      entidades,
+      searchQuery,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -322,45 +528,334 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                       ),
                     ),
 
-                  // Search bar
+                  // Search bar & Filter Trigger
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 4,
                     ),
-                    child: SizedBox(
-                      height: 40,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Buscar playlist ou ponto na Gira...',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {});
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 40,
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Buscar playlist ou ponto na Gira...',
+                                prefixIcon: const Icon(Icons.search_rounded),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear_rounded),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() {});
+                                        },
+                                      )
+                                    : null,
+                                filled: true,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal: 12,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                              onChanged: (value) => setState(() {}),
+                            ),
                           ),
                         ),
-                        onChanged: (value) => setState(() {}),
-                      ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          height: 40,
+                          child: OutlinedButton(
+                            onPressed: _toggleFilterPanel,
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              backgroundColor:
+                                  _isFilterExpanded || totalFiltrosAtivos > 0
+                                      ? theme.colorScheme.primaryContainer
+                                            .withValues(alpha: 0.5)
+                                      : null,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _isFilterExpanded
+                                      ? Icons.filter_alt_off_rounded
+                                      : Icons.filter_alt_rounded,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  totalFiltrosAtivos > 0
+                                      ? 'Filtros ($totalFiltrosAtivos)'
+                                      : 'Filtro',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
-                  // Header Controls (Adicionar, Apresentar, Wakelock)
+                  // Limpar Filtros Indicator
+                  if (totalFiltrosAtivos > 0) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        children: [
+                          InkWell(
+                            onTap: _clearFilters,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: theme.colorScheme.error,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Limpar filtros',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.error,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Cascading Filter Panel (Collapsible)
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Filtro por Características',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () =>
+                                    setState(() => _isFilterExpanded = false),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 12),
+
+                          // Nível 1: Linha
+                          Text(
+                            '1. Linha:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: todasLinhas.map((linha) {
+                              final isSelected = _tempSelectedLinhas.contains(
+                                linha,
+                              );
+                              return FilterChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(
+                                  linha,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _tempSelectedLinhas.add(linha);
+                                    } else {
+                                      _tempSelectedLinhas.remove(linha);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Nível 2: Falange (Cascata)
+                          Text(
+                            '2. Falange:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: todasFalanges.map((falange) {
+                              final isSelected = _tempSelectedFalanges.contains(
+                                falange,
+                              );
+                              return FilterChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(
+                                  falange,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _tempSelectedFalanges.add(falange);
+                                    } else {
+                                      _tempSelectedFalanges.remove(falange);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Nível 3: Entidades (Cascata)
+                          Text(
+                            '3. Entidades:',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: entidadesNasFalanges.map((entidade) {
+                              if (entidade.id == null) {
+                                return const SizedBox.shrink();
+                              }
+                              final isSelected = _tempSelectedEntidades
+                                  .contains(entidade.id);
+                              return FilterChip(
+                                visualDensity: VisualDensity.compact,
+                                label: Text(
+                                  entidade.nomeEntidade,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                selected: isSelected,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    if (selected) {
+                                      _tempSelectedEntidades.add(entidade.id!);
+                                    } else {
+                                      _tempSelectedEntidades.remove(
+                                        entidade.id!,
+                                      );
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 14),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _tempSelectedLinhas.clear();
+                                    _tempSelectedFalanges.clear();
+                                    _tempSelectedEntidades.clear();
+                                  });
+                                },
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                child: const Text('Resetar seleções'),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton(
+                                onPressed: _applyFilter,
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_rounded, size: 16),
+                                    SizedBox(width: 4),
+                                    Text('Aplicar Filtro'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    crossFadeState: _isFilterExpanded
+                        ? CrossFadeState.showSecond
+                        : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 250),
+                  ),
+
+                  // Header Controls (A-, A+, Expandir, Recolher, Apresentar, Wakelock)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -403,6 +898,94 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: [
+                              OutlinedButton(
+                                onPressed: gira.playlist.isEmpty
+                                    ? null
+                                    : _decreaseFontSize,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                child: const Text('A-'),
+                              ),
+                              const SizedBox(width: 4),
+                              OutlinedButton(
+                                onPressed: gira.playlist.isEmpty
+                                    ? null
+                                    : _increaseFontSize,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                child: const Text('A+'),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: gira.playlist.isEmpty
+                                    ? null
+                                    : () => _expandAll(itemsGiraComPlaylists),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.unfold_more_rounded, size: 18),
+                                    SizedBox(width: 4),
+                                    Text('Expandir todos'),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton(
+                                onPressed: gira.playlist.isEmpty
+                                    ? null
+                                    : _collapseAll,
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.unfold_less_rounded, size: 18),
+                                    SizedBox(width: 4),
+                                    Text('Recolher todos'),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               OutlinedButton(
                                 onPressed: todosPontosDaGira.isEmpty
                                     ? null
@@ -538,16 +1121,26 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Nenhuma playlist encontrada com o termo pesquisado.',
+                          temFiltroOuBuscaAtiva
+                              ? 'Nenhum ponto ou playlist encontrado com os filtros aplicados.'
+                              : 'Nenhuma playlist encontrada na Gira.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyLarge,
                         ),
+                        if (temFiltroOuBuscaAtiva) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            onPressed: _clearFilters,
+                            icon: const Icon(Icons.clear_all_rounded),
+                            label: const Text('Limpar Filtros'),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ),
               )
-            else if (searchQuery.isNotEmpty)
+            else if (temFiltroOuBuscaAtiva)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -563,10 +1156,13 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                       gira: gira,
                       girasProvider: girasProvider,
                       audioProvider: audioProvider,
+                      entidades: entidades,
                       colorScheme: colorScheme,
                       theme: theme,
                       isFiltered: true,
                       canEdit: canEdit,
+                      searchQuery: searchQuery,
+                      temFiltroOuBuscaAtiva: temFiltroOuBuscaAtiva,
                     );
                   }, childCount: itemsFiltrados.length),
                 ),
@@ -625,10 +1221,13 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                       gira: gira,
                       girasProvider: girasProvider,
                       audioProvider: audioProvider,
+                      entidades: entidades,
                       colorScheme: colorScheme,
                       theme: theme,
                       isFiltered: false,
                       canEdit: canEdit,
+                      searchQuery: searchQuery,
+                      temFiltroOuBuscaAtiva: temFiltroOuBuscaAtiva,
                     );
                   },
                 ),
@@ -647,19 +1246,34 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
     required Gira gira,
     required GirasProvider girasProvider,
     required AudioPlayerProvider audioProvider,
+    required List<Entidade> entidades,
     required ColorScheme colorScheme,
     required ThemeData theme,
     required bool isFiltered,
     required bool canEdit,
+    required String searchQuery,
+    required bool temFiltroOuBuscaAtiva,
   }) {
     final playlist = item.playlist;
-    final playlistName = playlist?.nomePlaylist ?? 'Playlist #${item.playlistId}';
-    final pontosCount = playlist?.pontos.length ?? 0;
+    final playlistName =
+        playlist?.nomePlaylist ?? 'Playlist #${item.playlistId}';
+
+    // Pontos da playlist filtrados conforme a busca/filtros ativos
+    final pontosFiltrados = playlist?.pontos.where((pItem) {
+          return _pontoMatchesFilter(pItem, entidades, searchQuery);
+        }).toList() ??
+        [];
+
+    final totalPontos = playlist?.pontos.length ?? 0;
     final isExpanded = _expandedPlaylistIds.contains(item.playlistId);
 
     final isPlayingThisPlaylist =
         audioProvider.currentPlaylist?.id == playlist?.id &&
         audioProvider.isPlaying;
+
+    final String pontosText = (temFiltroOuBuscaAtiva && totalPontos > 0)
+        ? '${pontosFiltrados.length} de $totalPontos ponto(s)'
+        : '$totalPontos ponto(s)';
 
     return Card(
       key: ValueKey('gira_item_${item.playlistId}_$index'),
@@ -724,7 +1338,7 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '$pontosCount ponto(s)',
+                          pontosText,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             fontSize: 12,
@@ -751,7 +1365,9 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                                 : Icons.play_circle_fill_rounded,
                             color: colorScheme.primary,
                           ),
-                          tooltip: isPlayingThisPlaylist ? 'Pausar' : 'Tocar Playlist',
+                          tooltip: isPlayingThisPlaylist
+                              ? 'Pausar'
+                              : 'Tocar Playlist',
                           onPressed: () {
                             if (isPlayingThisPlaylist) {
                               audioProvider.pausar();
@@ -823,9 +1439,11 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
             const Divider(height: 1, indent: 16, endIndent: 16),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: playlist == null || playlist.pontos.isEmpty
+              child: playlist == null || pontosFiltrados.isEmpty
                   ? Text(
-                      'Esta playlist não possui pontos cadastrados.',
+                      playlist == null || playlist.pontos.isEmpty
+                          ? 'Esta playlist não possui pontos cadastrados.'
+                          : 'Nenhum ponto nesta playlist atende aos filtros aplicados.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontStyle: FontStyle.italic,
                         color: theme.hintColor,
@@ -833,63 +1451,176 @@ class _GiraDetailScreenState extends State<GiraDetailScreen> {
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: playlist.pontos.map((pItem) {
+                      children: pontosFiltrados.map((pItem) {
                         final p = pItem.ponto;
                         final isPlayingThisTrack =
                             audioProvider.currentPonto?.id == p.id &&
                             audioProvider.isPlaying;
+                        final isPontoExpanded =
+                            p.id != null && _expandedPontoIds.contains(p.id);
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 3.0),
-                          child: Row(
+                        Entidade? eDoPonto;
+                        if (p.entidadeId != null) {
+                          try {
+                            eDoPonto = entidades.firstWhere(
+                              (e) => e.id == p.entidadeId,
+                            );
+                          } catch (_) {}
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4.0),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerLow
+                                .withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: colorScheme.outlineVariant
+                                  .withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                '${pItem.ordem}.',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: colorScheme.primary,
+                              InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  if (p.id != null) {
+                                    _toggleExpandPonto(p.id!);
+                                  }
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        '${pItem.ordem}.',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: colorScheme.primary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              p.nomePonto,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: isPlayingThisTrack
+                                                    ? FontWeight.bold
+                                                    : FontWeight.w600,
+                                                color: isPlayingThisTrack
+                                                    ? colorScheme.primary
+                                                    : null,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (eDoPonto != null)
+                                              Text(
+                                                '${eDoPonto.nomeEntidade}${eDoPonto.linhaEntidade.isNotEmpty ? " • ${eDoPonto.linhaEntidade}" : ""}',
+                                                style: theme.textTheme.bodySmall
+                                                    ?.copyWith(
+                                                  fontSize: 11,
+                                                  color: colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (p.audioUrl.isNotEmpty)
+                                        IconButton(
+                                          constraints: const BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          visualDensity: VisualDensity.compact,
+                                          iconSize: 20,
+                                          icon: Icon(
+                                            isPlayingThisTrack
+                                                ? Icons.pause_circle_filled_rounded
+                                                : Icons.play_circle_outline_rounded,
+                                            color: colorScheme.primary,
+                                          ),
+                                          onPressed: () {
+                                            if (isPlayingThisTrack) {
+                                              audioProvider.pausar();
+                                            } else {
+                                              audioProvider.tocarPonto(
+                                                p,
+                                                playlist: playlist,
+                                                index: pItem.ordem - 1,
+                                                item: pItem,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      IconButton(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 32,
+                                          minHeight: 32,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        visualDensity: VisualDensity.compact,
+                                        iconSize: 20,
+                                        icon: Icon(
+                                          isPontoExpanded
+                                              ? Icons.keyboard_arrow_up_rounded
+                                              : Icons.keyboard_arrow_down_rounded,
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                        onPressed: () {
+                                          if (p.id != null) {
+                                            _toggleExpandPonto(p.id!);
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  p.nomePonto,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: isPlayingThisTrack
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                    color: isPlayingThisTrack
-                                        ? colorScheme.primary
-                                        : null,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              if (isPontoExpanded) ...[
+                                const Divider(height: 1),
+                                Padding(
+                                  padding: const EdgeInsets.all(10.0),
+                                  child: p.pontoLetra.isNotEmpty
+                                      ? SelectableText(
+                                          p.pontoLetra,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            height: 1.4,
+                                            fontSize: (theme.textTheme
+                                                        .bodyMedium?.fontSize ??
+                                                    14.0) *
+                                                _letrasFontScale,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Letra não cadastrada.',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            fontStyle: FontStyle.italic,
+                                            color: theme.hintColor,
+                                            fontSize: (theme.textTheme
+                                                        .bodyMedium?.fontSize ??
+                                                    14.0) *
+                                                _letrasFontScale,
+                                          ),
+                                        ),
                                 ),
-                              ),
-                              if (p.audioUrl.isNotEmpty)
-                                InkWell(
-                                  onTap: () {
-                                    if (isPlayingThisTrack) {
-                                      audioProvider.pausar();
-                                    } else {
-                                      audioProvider.tocarPonto(
-                                        p,
-                                        playlist: playlist,
-                                        index: pItem.ordem - 1,
-                                        item: pItem,
-                                      );
-                                    }
-                                  },
-                                  child: Icon(
-                                    isPlayingThisTrack
-                                        ? Icons.pause_circle_filled_rounded
-                                        : Icons.play_circle_outline_rounded,
-                                    size: 18,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
+                              ],
                             ],
                           ),
                         );
