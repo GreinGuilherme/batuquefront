@@ -19,12 +19,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final PageController _pageController;
 
-  final List<Widget> _screens = const [
-    EntidadesScreen(),
-    PontosScreen(),
-    PlaylistsScreen(),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -209,7 +203,11 @@ class _HomeScreenState extends State<HomeScreen> {
             _currentIndex = index;
           });
         },
-        children: _screens,
+        children: [
+          const EntidadesScreen(),
+          const PontosScreen(),
+          PlaylistsScreen(parentPageController: _pageController),
+        ],
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,

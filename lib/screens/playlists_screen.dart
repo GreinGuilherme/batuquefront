@@ -14,7 +14,9 @@ import 'playlist_detail_screen.dart';
 import 'gira_detail_screen.dart';
 
 class PlaylistsScreen extends StatefulWidget {
-  const PlaylistsScreen({super.key});
+  final PageController? parentPageController;
+
+  const PlaylistsScreen({super.key, this.parentPageController});
 
   @override
   State<PlaylistsScreen> createState() => _PlaylistsScreenState();
@@ -449,16 +451,70 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
 
           // PageView permitindo deslizar horizontalmente entre as janelas (0: Playlist, 1: Gira)
           Expanded(
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (index) {
-                if (_selectedTabIndex != index) {
-                  setState(() {
-                    _selectedTabIndex = index;
-                    _searchController.clear();
-                  });
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (widget.parentPageController == null ||
+                    !widget.parentPageController!.hasClients) {
+                  return false;
                 }
+                if (notification.metrics.axis != Axis.horizontal) {
+                  return false;
+                }
+
+                final parent = widget.parentPageController!;
+
+                if (_selectedTabIndex == 0) {
+                  if (notification is OverscrollNotification) {
+                    if (notification.overscroll < 0) {
+                      final newOffset = (parent.offset + notification.overscroll)
+                          .clamp(0.0, parent.position.maxScrollExtent);
+                      parent.jumpTo(newOffset);
+                    }
+                  } else if (notification is ScrollUpdateNotification) {
+                    final delta = notification.scrollDelta ?? 0;
+                    if (notification.metrics.pixels <= 0 && delta < 0) {
+                      final newOffset = (parent.offset + delta)
+                          .clamp(0.0, parent.position.maxScrollExtent);
+                      parent.jumpTo(newOffset);
+                    } else if (parent.hasClients &&
+                        parent.offset < parent.position.maxScrollExtent &&
+                        delta > 0 &&
+                        notification.metrics.pixels <= 0) {
+                      final newOffset = (parent.offset + delta)
+                          .clamp(0.0, parent.position.maxScrollExtent);
+                      parent.jumpTo(newOffset);
+                    }
+                  } else if (notification is ScrollEndNotification) {
+                    if (parent.hasClients && parent.position.haveDimensions) {
+                      final targetPage = parent.page ?? (parent.offset / parent.position.viewportDimension);
+                      if (targetPage < 1.5) {
+                        parent.animateToPage(
+                          1,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        );
+                      } else if (targetPage < 2.0) {
+                        parent.animateToPage(
+                          2,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        );
+                      }
+                    }
+                  }
+                }
+                return false;
               },
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  if (_selectedTabIndex != index) {
+                    setState(() {
+                      _selectedTabIndex = index;
+                      _searchController.clear();
+                    });
+                  }
+                },
               children: [
                 // Aba 0: Playlist de Ponto
                 Column(
@@ -730,10 +786,11 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildPlaylistsListView({
     required BuildContext context,
