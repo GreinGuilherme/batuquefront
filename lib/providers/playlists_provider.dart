@@ -51,22 +51,43 @@ class PlaylistsProvider extends ChangeNotifier {
 
   /// Método para sincronizar com eventos do WebSocket/STOMP
   void sincronizar(SyncEvent event) {
+    if (kDebugMode) {
+      debugPrint('🔄 [PlaylistsProvider.sincronizar] Ação: "${event.acao}", Dados: ${event.dados}');
+    }
+
     if (event.acao == "CREATE") {
-      final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
-      final index = _playlists.indexWhere((p) => p.id == playlist.id);
-      if (index == -1) {
-        _playlists.add(playlist);
+      if (event.dados is Map<String, dynamic>) {
+        final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
+        if (playlist.id == null) {
+          debugPrint('⚠️ [PlaylistsProvider] ATENÇÃO: Playlist criada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [PlaylistsProvider] Nova Playlist sincronizada: ID=${playlist.id}, Nome="${playlist.nomePlaylist}"');
+        }
+        final index = _playlists.indexWhere((p) => p.id == playlist.id);
+        if (index == -1) {
+          _playlists.add(playlist);
+        } else {
+          _playlists[index] = playlist;
+        }
       }
     } else if (event.acao == "UPDATE") {
-      final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
-      final index = _playlists.indexWhere((p) => p.id == playlist.id);
-      if (index != -1) {
-        _playlists[index] = playlist;
-      } else {
-        _playlists.add(playlist);
+      if (event.dados is Map<String, dynamic>) {
+        final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
+        if (playlist.id == null) {
+          debugPrint('⚠️ [PlaylistsProvider] ATENÇÃO: Playlist atualizada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [PlaylistsProvider] Playlist atualizada sincronizada: ID=${playlist.id}, Nome="${playlist.nomePlaylist}"');
+        }
+        final index = _playlists.indexWhere((p) => p.id == playlist.id);
+        if (index != -1) {
+          _playlists[index] = playlist;
+        } else {
+          _playlists.add(playlist);
+        }
       }
     } else if (event.acao == "DELETE") {
       final id = event.idParaDeletar;
+      debugPrint('🗑️ [PlaylistsProvider] Playlist deletada sincronizada: ID=$id');
       if (id != null) {
         _playlists.removeWhere((p) => p.id == id);
       }

@@ -120,22 +120,43 @@ class PontosProvider extends ChangeNotifier {
 
   /// Método para sincronizar com eventos do WebSocket/STOMP
   void sincronizar(SyncEvent event) {
+    if (kDebugMode) {
+      debugPrint('🔄 [PontosProvider.sincronizar] Ação: "${event.acao}", Dados: ${event.dados}');
+    }
+
     if (event.acao == "CREATE") {
-      final ponto = PontoCantado.fromJson(event.dados as Map<String, dynamic>);
-      final index = _pontos.indexWhere((p) => p.id == ponto.id);
-      if (index == -1) {
-        _pontos.add(ponto);
+      if (event.dados is Map<String, dynamic>) {
+        final ponto = PontoCantado.fromJson(event.dados as Map<String, dynamic>);
+        if (ponto.id == null) {
+          debugPrint('⚠️ [PontosProvider] ATENÇÃO: Ponto criado veio com ID NULL!');
+        } else {
+          debugPrint('✅ [PontosProvider] Novo Ponto sincronizado: ID=${ponto.id}, Nome="${ponto.nomePonto}"');
+        }
+        final index = _pontos.indexWhere((p) => p.id == ponto.id);
+        if (index == -1) {
+          _pontos.add(ponto);
+        } else {
+          _pontos[index] = ponto;
+        }
       }
     } else if (event.acao == "UPDATE") {
-      final ponto = PontoCantado.fromJson(event.dados as Map<String, dynamic>);
-      final index = _pontos.indexWhere((p) => p.id == ponto.id);
-      if (index != -1) {
-        _pontos[index] = ponto;
-      } else {
-        _pontos.add(ponto);
+      if (event.dados is Map<String, dynamic>) {
+        final ponto = PontoCantado.fromJson(event.dados as Map<String, dynamic>);
+        if (ponto.id == null) {
+          debugPrint('⚠️ [PontosProvider] ATENÇÃO: Ponto atualizado veio com ID NULL!');
+        } else {
+          debugPrint('✅ [PontosProvider] Ponto atualizado sincronizado: ID=${ponto.id}, Nome="${ponto.nomePonto}"');
+        }
+        final index = _pontos.indexWhere((p) => p.id == ponto.id);
+        if (index != -1) {
+          _pontos[index] = ponto;
+        } else {
+          _pontos.add(ponto);
+        }
       }
     } else if (event.acao == "DELETE") {
       final id = event.idParaDeletar;
+      debugPrint('🗑️ [PontosProvider] Ponto deletado sincronizado: ID=$id');
       if (id != null) {
         _pontos.removeWhere((p) => p.id == id);
       }

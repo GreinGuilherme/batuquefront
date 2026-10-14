@@ -109,22 +109,45 @@ class EntidadesProvider extends ChangeNotifier {
 
   /// Método para sincronizar com eventos do WebSocket/STOMP
   void sincronizar(SyncEvent event) {
+    if (kDebugMode) {
+      debugPrint('🔄 [EntidadesProvider.sincronizar] Ação: "${event.acao}", Dados: ${event.dados}');
+    }
+
     if (event.acao == "CREATE") {
-      final entidade = Entidade.fromJson(event.dados as Map<String, dynamic>);
-      final index = _todasEntidades.indexWhere((e) => e.id == entidade.id);
-      if (index == -1) {
-        _todasEntidades.add(entidade);
+      if (event.dados is Map<String, dynamic>) {
+        final entidade = Entidade.fromJson(event.dados as Map<String, dynamic>);
+        if (entidade.id == null) {
+          debugPrint('⚠️ [EntidadesProvider] ATENÇÃO: Entidade criada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [EntidadesProvider] Nova Entidade sincronizada: ID=${entidade.id}, Nome="${entidade.nomeEntidade}"');
+        }
+        final index = _todasEntidades.indexWhere((e) => e.id == entidade.id);
+        if (index == -1) {
+          _todasEntidades.add(entidade);
+        } else {
+          _todasEntidades[index] = entidade;
+        }
+      } else {
+        debugPrint('⚠️ [EntidadesProvider] Dados para CREATE não são Map: ${event.dados}');
       }
     } else if (event.acao == "UPDATE") {
-      final entidade = Entidade.fromJson(event.dados as Map<String, dynamic>);
-      final index = _todasEntidades.indexWhere((e) => e.id == entidade.id);
-      if (index != -1) {
-        _todasEntidades[index] = entidade;
-      } else {
-        _todasEntidades.add(entidade);
+      if (event.dados is Map<String, dynamic>) {
+        final entidade = Entidade.fromJson(event.dados as Map<String, dynamic>);
+        if (entidade.id == null) {
+          debugPrint('⚠️ [EntidadesProvider] ATENÇÃO: Entidade atualizada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [EntidadesProvider] Entidade atualizada sincronizada: ID=${entidade.id}, Nome="${entidade.nomeEntidade}"');
+        }
+        final index = _todasEntidades.indexWhere((e) => e.id == entidade.id);
+        if (index != -1) {
+          _todasEntidades[index] = entidade;
+        } else {
+          _todasEntidades.add(entidade);
+        }
       }
     } else if (event.acao == "DELETE") {
       final id = event.idParaDeletar;
+      debugPrint('🗑️ [EntidadesProvider] Entidade deletada sincronizada: ID=$id');
       if (id != null) {
         _todasEntidades.removeWhere((e) => e.id == id);
       }
