@@ -72,8 +72,16 @@ class StompService {
           );
         },
         onWebSocketError: (dynamic error) => debugPrint('Erro no WebSocket: $error'),
-        stompConnectHeaders: token != null ? {'Authorization': 'Bearer $token'} : null,
-        webSocketConnectHeaders: token != null ? {'Authorization': 'Bearer $token'} : null,
+        stompConnectHeaders: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'x-app-batuque': 'GiraSegura2026',
+          'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
+        },
+        webSocketConnectHeaders: {
+          if (token != null) 'Authorization': 'Bearer $token',
+          'x-app-batuque': 'GiraSegura2026',
+          'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
+        },
       ),
     );
 

@@ -3,10 +3,12 @@ import 'ponto_cantado.dart';
 class PontoItem {
   final int ordem;
   final PontoCantado ponto;
+  final String? nomePlaylist;
 
   PontoItem({
     required this.ordem,
     required this.ponto,
+    this.nomePlaylist,
   });
 
   factory PontoItem.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class PontoItem {
               pontoLetra: '',
               audioUrl: '',
             ),
+      nomePlaylist: json['nomePlaylist'] as String?,
     );
   }
 
@@ -27,6 +30,7 @@ class PontoItem {
     return {
       'ordem': ordem,
       'ponto': ponto.toJson(),
+      if (nomePlaylist != null) 'nomePlaylist': nomePlaylist,
     };
   }
 
@@ -40,10 +44,12 @@ class PontoItem {
   PontoItem copyWith({
     int? ordem,
     PontoCantado? ponto,
+    String? nomePlaylist,
   }) {
     return PontoItem(
       ordem: ordem ?? this.ordem,
       ponto: ponto ?? this.ponto,
+      nomePlaylist: nomePlaylist ?? this.nomePlaylist,
     );
   }
 }

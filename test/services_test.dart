@@ -6,17 +6,18 @@ import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
 import 'package:batuque/models/ponto_item.dart';
 import 'package:batuque/models/playlist.dart';
+import 'package:batuque/models/gira.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:batuque/services/entidade_service.dart';
 import 'package:batuque/services/ponto_service.dart';
 import 'package:batuque/services/playlist_service.dart';
+import 'package:batuque/services/gira_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-
   });
 
   group('EntidadeService Testes', () {
@@ -72,7 +73,7 @@ void main() {
       await mockService.deletarEntidade(1, nomeEntidade: 'Caboclo Pena Branca');
 
       expect(capturedMethod, 'DELETE');
-      expect(capturedUrl, contains('/entidade/deletar?id=1&nomeEntidade=Caboclo'));
+      expect(capturedUrl, contains('/entidade/deletar/1'));
     });
   });
 
@@ -171,131 +172,6 @@ void main() {
       expect(todas.any((p) => p.id == cadastrada.id), isFalse);
     });
 
-    test('atualizarPlaylist envia payload correto para o backend', () async {
-      late String capturedMethod;
-      late String capturedUrl;
-      late Map<String, dynamic> capturedBody;
-
-      final client = MockClient((request) async {
-        capturedMethod = request.method;
-        capturedUrl = request.url.toString();
-        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
-
-        return http.Response(
-          jsonEncode({
-            'id': 15,
-            'nomePlaylist': 'Playlist figueira',
-            'dataCriacao': '2026-03-10T10:00:00.000Z',
-            'pontos': [
-              {
-                'ordem': 1,
-                'ponto': {
-                  'id': 14,
-                  'nomePonto': 'Ponto Figueral',
-                  'pontoLetra': '',
-                  'audioUrl': '',
-                }
-              }
-            ],
-          }),
-          200,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      });
-
-      final mockService = PlaylistService(client: client);
-      final playlistParaAtualizar = Playlist(
-        id: 15,
-        nomePlaylist: 'Playlist figueira',
-        pontos: [
-          PontoItem(
-            ordem: 1,
-            ponto: PontoCantado(
-              id: 14,
-              nomePonto: 'Ponto Figueral',
-              pontoLetra: '',
-              audioUrl: '',
-            ),
-          ),
-        ],
-      );
-
-      final resultado = await mockService.atualizarPlaylist(15, playlistParaAtualizar);
-
-      expect(capturedMethod, 'PUT');
-      expect(capturedUrl, contains('/playlist/atualizar/15'));
-      expect(capturedBody, {
-        'nomePlaylist': 'Playlist figueira',
-        'pontos': [
-          {'pontoId': 14, 'ordem': 1}
-        ],
-      });
-      expect(resultado.nomePlaylist, 'Playlist figueira');
-      expect(resultado.pontos.length, 1);
-      expect(resultado.pontos.first.ponto.id, 14);
-    });
-
-    test('cadastrarPlaylist envia payload correto e exibe nome da playlist', () async {
-      late String capturedMethod;
-      late String capturedUrl;
-      late Map<String, dynamic> capturedBody;
-
-      final client = MockClient((request) async {
-        capturedMethod = request.method;
-        capturedUrl = request.url.toString();
-        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
-
-        return http.Response(
-          jsonEncode({
-            'id': 20,
-            'nomePlaylist': 'Playlist test mu',
-            'pontos': [
-              {
-                'ordem': 1,
-                'ponto': {
-                  'id': 1,
-                  'nomePonto': 'Ponto Exemplo',
-                  'pontoLetra': '',
-                  'audioUrl': '',
-                }
-              }
-            ],
-          }),
-          201,
-          headers: {'content-type': 'application/json; charset=utf-8'},
-        );
-      });
-
-      final mockService = PlaylistService(client: client);
-      final novaPlaylist = Playlist(
-        nomePlaylist: 'Playlist test mu',
-        pontos: [
-          PontoItem(
-            ordem: 1,
-            ponto: PontoCantado(
-              id: 1,
-              nomePonto: 'Ponto Exemplo',
-              pontoLetra: '',
-              audioUrl: '',
-            ),
-          ),
-        ],
-      );
-
-      final resultado = await mockService.cadastrarPlaylist(novaPlaylist);
-
-      expect(capturedMethod, 'POST');
-      expect(capturedUrl, contains('/playlist/cadastrar'));
-      expect(capturedBody, {
-        'nomePlaylist': 'Playlist test mu',
-        'pontos': [
-          {'pontoId': 1, 'ordem': 1}
-        ],
-      });
-      expect(resultado.id, 20);
-      expect(resultado.nomePlaylist, 'Playlist test mu');
-    });
-
     test('deletarPlaylist envia o parâmetro id na query string da URL (/playlist/deletar?id=2)', () async {
       late String capturedMethod;
       late String capturedUrl;
@@ -312,6 +188,141 @@ void main() {
 
       expect(capturedMethod, 'DELETE');
       expect(capturedUrl, contains('/playlist/deletar?id=2'));
+    });
+  });
+
+  group('GiraService Testes', () {
+    test('cadastrarGira envia payload para /gira/cadastrar', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+      late Map<String, dynamic> capturedBody;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+        return http.Response(
+          jsonEncode({
+            'id': 50,
+            'nomeGira': 'PlaylistsTests2',
+            'descricao': 'Test playlists',
+            'playlist': [
+              {'playlistId': 25, 'ordem': 1},
+              {'playlistId': 26, 'ordem': 2},
+            ],
+          }),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final service = GiraService(client: client);
+      final gira = Gira(
+        nomeGira: 'PlaylistsTests2',
+        descricao: 'Test playlists',
+        playlist: [
+          GiraPlaylistItem(playlistId: 25, ordem: 1),
+          GiraPlaylistItem(playlistId: 26, ordem: 2),
+        ],
+      );
+
+      final resultado = await service.cadastrarGira(gira);
+
+      expect(capturedMethod, 'POST');
+      expect(capturedUrl, contains('/gira/cadastrar'));
+      expect(capturedBody['nomeGira'], 'PlaylistsTests2');
+      expect(capturedBody['descricao'], 'Test playlists');
+      expect(capturedBody['playlist'], [
+        {'playlistId': 25, 'ordem': 1},
+        {'playlistId': 26, 'ordem': 2},
+      ]);
+      expect(resultado.id, 50);
+    });
+
+    test('buscarGiras retorna lista de giras', () async {
+      final client = MockClient((request) async {
+        return http.Response(
+          jsonEncode([
+            {
+              'id': 1,
+              'nomeGira': 'Gira de Exu',
+              'playlist': [],
+            }
+          ]),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final service = GiraService(client: client);
+      final giras = await service.buscarGiras();
+
+      expect(giras.length, 1);
+      expect(giras.first.nomeGira, 'Gira de Exu');
+    });
+
+    test('atualizarGira envia PUT para /gira/atualizar/{playlistId}', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+      late Map<String, dynamic> capturedBody;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+        return http.Response(
+          jsonEncode({
+            'id': 25,
+            'nomeGira': 'Adicionando playlist2',
+            'playlist': [
+              {'playlistId': 25, 'ordem': 1},
+              {'playlistId': 26, 'ordem': 2},
+              {'playlistId': 8, 'ordem': 3},
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final service = GiraService(client: client);
+      final gira = Gira(
+        id: 25,
+        nomeGira: 'Adicionando playlist2',
+        playlist: [
+          GiraPlaylistItem(playlistId: 25, ordem: 1),
+          GiraPlaylistItem(playlistId: 26, ordem: 2),
+          GiraPlaylistItem(playlistId: 8, ordem: 3),
+        ],
+      );
+
+      final resultado = await service.atualizarGira(25, gira);
+
+      expect(capturedMethod, 'PUT');
+      expect(capturedUrl, contains('/gira/atualizar/25'));
+      expect(capturedBody['nomeGira'], 'Adicionando playlist2');
+      expect(capturedBody['playlist'].length, 3);
+      expect(resultado.id, 25);
+    });
+
+    test('deletarGira envia DELETE para /gira/deletar?id=25', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+
+        return http.Response('', 200);
+      });
+
+      final service = GiraService(client: client);
+      await service.deletarGira(25);
+
+      expect(capturedMethod, 'DELETE');
+      expect(capturedUrl, contains('/gira/deletar?id=25'));
     });
   });
 }

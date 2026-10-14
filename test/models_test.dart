@@ -3,6 +3,7 @@ import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
 import 'package:batuque/models/ponto_item.dart';
 import 'package:batuque/models/playlist.dart';
+import 'package:batuque/models/gira.dart';
 
 void main() {
   group('Entidade Model', () {
@@ -149,6 +150,36 @@ void main() {
           {'pontoId': 14, 'ordem': 1}
         ],
       });
+    });
+  });
+
+  group('Gira Model', () {
+    test('fromJson and toJson serialize correctly for Gira', () {
+      final json = {
+        'id': 50,
+        'nomeGira': 'PlaylistsTests2',
+        'descricao': 'Test playlists',
+        'playlist': [
+          {'playlistId': 25, 'ordem': 1},
+          {'playlistId': 26, 'ordem': 2},
+        ],
+      };
+
+      final gira = Gira.fromJson(json);
+      expect(gira.id, 50);
+      expect(gira.nomeGira, 'PlaylistsTests2');
+      expect(gira.descricao, 'Test playlists');
+      expect(gira.playlist.length, 2);
+      expect(gira.playlist.first.playlistId, 25);
+      expect(gira.playlist.first.ordem, 1);
+
+      final insertJson = gira.toInsertJson();
+      expect(insertJson['nomeGira'], 'PlaylistsTests2');
+      expect(insertJson['descricao'], 'Test playlists');
+      expect(insertJson['playlist'], [
+        {'playlistId': 25, 'ordem': 1},
+        {'playlistId': 26, 'ordem': 2},
+      ]);
     });
   });
 }

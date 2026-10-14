@@ -49,10 +49,11 @@ class EntidadeService {
   Future<List<Entidade>> filtrarEntidades(String termo) async {
     final queryParams = <String, String>{};
     if (termo.isNotEmpty) {
-      queryParams['termo'] = termo;
+      queryParams['nomeEntidade'] = termo;
+      queryParams['falange'] = termo;
     }
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar/filtro')
+    final uri = Uri.parse('${ApiConfig.baseUrl}/entidade/buscar/filtrar')
         .replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
     final headers = await _authService.getAuthHeaders();
 

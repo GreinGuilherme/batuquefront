@@ -7,5 +7,5 @@ class ApiConfig {
   static String baseUrl = 'https://batuque.duckdns.org';
 
   /// Timeout padrão para requisições HTTP
-  static Duration timeout = const Duration(seconds: 10);
+  static Duration timeout = const Duration(seconds: 15);
 }

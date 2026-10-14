@@ -4,6 +4,7 @@ import 'providers/auth_provider.dart';
 import 'providers/entidades_provider.dart';
 import 'providers/pontos_provider.dart';
 import 'providers/playlists_provider.dart';
+import 'providers/giras_provider.dart';
 import 'providers/audio_player_provider.dart';
 import 'providers/theme_provider.dart';
 import 'theme/app_theme.dart';
@@ -25,6 +26,7 @@ class BatuqueApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => EntidadesProvider()),
         ChangeNotifierProvider(create: (_) => PontosProvider()),
         ChangeNotifierProvider(create: (_) => PlaylistsProvider()),
+        ChangeNotifierProvider(create: (_) => GirasProvider()),
         ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
       ],
       child: Consumer<ThemeProvider>(

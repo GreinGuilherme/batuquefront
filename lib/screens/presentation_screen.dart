@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import '../models/ponto_cantado.dart';
 import '../models/ponto_item.dart';
 
 class PresentationScreen extends StatefulWidget {
@@ -14,15 +14,46 @@ class PresentationScreen extends StatefulWidget {
   State<PresentationScreen> createState() => _PresentationScreenState();
 }
 
-class _PresentationScreenState extends State<PresentationScreen> {
+class _PresentationScreenState extends State<PresentationScreen> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   bool _isPlaying = false;
   double _scrollSpeed = 1.0;
   double _fontSize = 24.0;
-  Timer? _scrollTimer;
   Timer? _manualScrollTimer;
+  late Ticker _ticker;
+  Duration _lastElapsed = Duration.zero;
+  Duration _currentElapsed = Duration.zero;
 
   bool _isManualScrolling = false;
+
+  double _calculateThumbHeight(double trackHeight) {
+    if (!_scrollController.hasClients) return 40.0;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) return trackHeight;
+    final viewportDimension = _scrollController.position.viewportDimension;
+    final totalHeight = maxExtent + viewportDimension;
+    return (viewportDimension / totalHeight * trackHeight).clamp(30.0, trackHeight);
+  }
+
+  void _onScrollbarDrag(double dy, double trackHeight) {
+    if (!_scrollController.hasClients) return;
+    final maxExtent = _scrollController.position.maxScrollExtent;
+    if (maxExtent <= 0) return;
+
+    final double thumbHeight = _calculateThumbHeight(trackHeight);
+    final double scrollableTrackHeight = trackHeight - thumbHeight;
+
+    final double thumbTop = scrollableTrackHeight > 0
+        ? (dy - thumbHeight / 2).clamp(0.0, scrollableTrackHeight)
+        : 0.0;
+
+    final double progress = scrollableTrackHeight > 0
+        ? (thumbTop / scrollableTrackHeight)
+        : (dy / trackHeight).clamp(0.0, 1.0);
+
+    final double targetOffset = progress * maxExtent;
+    _scrollController.jumpTo(targetOffset);
+  }
 
   @override
   void initState() {
@@ -30,6 +61,26 @@ class _PresentationScreenState extends State<PresentationScreen> {
     // Esconde a barra inferior de navegação e a barra de status. 
     // Quando deslizado, aparece por alguns segundos e volta a esconder.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    _ticker = createTicker((elapsed) {
+      _currentElapsed = elapsed;
+      if (!_isManualScrolling && _scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
+        final double dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
+        _lastElapsed = elapsed;
+        
+        // A escala antiga era de 10 pixels por segundo em velocidade 1.0 (0.5 pixels a cada 50ms).
+        double nextOffset = _scrollController.offset + (_scrollSpeed * 10.0 * dt);
+        
+        if (nextOffset >= _scrollController.position.maxScrollExtent) {
+          _stopAutoScroll();
+          setState(() => _isPlaying = false);
+        } else {
+          _scrollController.jumpTo(nextOffset);
+        }
+      } else {
+        _lastElapsed = elapsed;
+      }
+    });
   }
 
   void _togglePlayPause() {
@@ -44,30 +95,31 @@ class _PresentationScreenState extends State<PresentationScreen> {
   }
 
   void _startAutoScroll() {
-    _scrollTimer?.cancel();
-    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!_isManualScrolling && _scrollController.hasClients && _scrollController.position.maxScrollExtent > 0) {
-        double nextOffset = _scrollController.offset + (_scrollSpeed * 0.5); // Adjust multiplier for slower min speed
-        if (nextOffset >= _scrollController.position.maxScrollExtent) {
-          _stopAutoScroll();
-          setState(() => _isPlaying = false);
-        } else {
-          _scrollController.jumpTo(nextOffset);
-        }
-      }
-    });
+    _lastElapsed = Duration.zero;
+    if (!_ticker.isTicking) {
+      _ticker.start();
+    }
   }
 
   void _stopAutoScroll() {
-    _scrollTimer?.cancel();
+    if (_ticker.isTicking) {
+      _ticker.stop();
+    }
   }
 
   void _startManualScroll(bool up) {
-    _isManualScrolling = true;
-    _manualScrollTimer?.cancel();
-    _manualScrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    setState(() {
+      _isManualScrolling = true;
+      _manualScrollTimer?.cancel();
+    });
+    
+    // Calcula quantos pixels avançar/retroceder por frame (ex: a 60 fps)
+    // 300 pixels por segundo -> 300 / 60 = 5 pixels por frame
+    const double pixelsPerSecond = 300.0;
+    
+    _manualScrollTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) { // ~60fps
       if (_scrollController.hasClients) {
-        double offsetDelta = 15.0; // Velocidade do scroll manual (rebobinar/avançar)
+        double offsetDelta = pixelsPerSecond * 0.016; // 16ms
         double nextOffset = _scrollController.offset + (up ? -offsetDelta : offsetDelta);
         
         if (nextOffset <= 0) {
@@ -84,8 +136,11 @@ class _PresentationScreenState extends State<PresentationScreen> {
   }
 
   void _stopManualScroll() {
-    _isManualScrolling = false;
-    _manualScrollTimer?.cancel();
+    setState(() {
+      _isManualScrolling = false;
+      _manualScrollTimer?.cancel();
+      _lastElapsed = _currentElapsed;
+    });
   }
 
   void _increaseFontSize() {
@@ -100,25 +155,9 @@ class _PresentationScreenState extends State<PresentationScreen> {
     });
   }
 
-  void _scrollToTop() {
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void _scrollToBottom() {
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
-  }
-
   @override
   void dispose() {
-    _scrollTimer?.cancel();
+    _ticker.dispose();
     _manualScrollTimer?.cancel();
     _scrollController.dispose();
     // Restaura a interface normal quando sair da tela de apresentação
@@ -148,7 +187,7 @@ class _PresentationScreenState extends State<PresentationScreen> {
                   child: Slider(
                     value: _scrollSpeed,
                     min: 0.05, // Menor valor para rolagem bem mais lenta
-                    max: 5.0,
+                    max: 8.0,  // Velocidade máxima aumentada para ser mais rápida
                     onChanged: (value) {
                       setState(() {
                         _scrollSpeed = value;
@@ -175,49 +214,198 @@ class _PresentationScreenState extends State<PresentationScreen> {
       ),
       body: Stack(
         children: [
-          ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.all(16.0),
-            itemCount: widget.pontos.length,
-            itemBuilder: (context, index) {
-              final pontoItem = widget.pontos[index];
-              final letra = pontoItem.ponto.pontoLetra.trim();
-              
-              if (letra.isEmpty) {
-                return const SizedBox.shrink();
+          NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (_isPlaying) {
+                if (notification is ScrollStartNotification) {
+                  if (notification.dragDetails != null) {
+                    setState(() {
+                      _isManualScrolling = true;
+                    });
+                  }
+                } else if (notification is ScrollEndNotification) {
+                  if (_isManualScrolling) {
+                    setState(() {
+                      _isManualScrolling = false;
+                      _lastElapsed = _currentElapsed;
+                    });
+                  }
+                }
               }
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 24.0),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Text(
-                    letra,
-                    style: TextStyle(fontSize: _fontSize, height: 1.5),
-                    textAlign: TextAlign.left, // Alinhado à esquerda
-                  ),
-                ),
-              );
+              return false;
             },
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.all(16.0),
+              itemCount: widget.pontos.length,
+              itemBuilder: (context, index) {
+                final pontoItem = widget.pontos[index];
+                final letra = pontoItem.ponto.pontoLetra.trim();
+                
+                if (letra.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                final currentPlaylistName = pontoItem.nomePlaylist?.trim();
+                String? previousPlaylistName;
+                for (int i = index - 1; i >= 0; i--) {
+                  final prevLetra = widget.pontos[i].ponto.pontoLetra.trim();
+                  if (prevLetra.isNotEmpty) {
+                    previousPlaylistName = widget.pontos[i].nomePlaylist?.trim();
+                    break;
+                  }
+                }
+
+                final bool showPlaylistDivider = currentPlaylistName != null &&
+                    currentPlaylistName.isNotEmpty &&
+                    (previousPlaylistName == null || previousPlaylistName != currentPlaylistName);
+
+                final cardWidget = Card(
+                  margin: const EdgeInsets.only(bottom: 24.0),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Text(
+                      letra,
+                      style: TextStyle(fontSize: _fontSize, height: 1.5),
+                      textAlign: TextAlign.left, // Alinhado à esquerda
+                    ),
+                  ),
+                );
+
+                if (!showPlaylistDivider) {
+                  return cardWidget;
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0, bottom: 16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                            child: Text(
+                              currentPlaylistName,
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.outline,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.8,
+                                  ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              thickness: 1,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .outlineVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    cardWidget,
+                  ],
+                );
+              },
+            ),
+          ),
+          // Custom interactive scrollbar track and position marker (thumb) on the right side
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 36,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final double trackHeight = constraints.maxHeight;
+                return GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onVerticalDragStart: (details) {
+                    _onScrollbarDrag(details.localPosition.dy, trackHeight);
+                  },
+                  onVerticalDragUpdate: (details) {
+                    _onScrollbarDrag(details.localPosition.dy, trackHeight);
+                  },
+                  child: AnimatedBuilder(
+                    animation: _scrollController,
+                    builder: (context, child) {
+                      final double maxExtent = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0.0;
+                      final double currentOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                      
+                      double thumbHeight = 40.0;
+                      double thumbTop = 0.0;
+                      if (maxExtent > 0 && trackHeight > thumbHeight) {
+                        thumbHeight = _calculateThumbHeight(trackHeight);
+                        final double scrollableTrackHeight = trackHeight - thumbHeight;
+                        final double progress = (currentOffset / maxExtent).clamp(0.0, 1.0);
+                        thumbTop = progress * scrollableTrackHeight;
+                      }
+
+                      return Container(
+                        alignment: Alignment.centerRight,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: trackHeight,
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            Positioned(
+                              right: 4,
+                              top: thumbTop,
+                              child: Container(
+                                width: 10,
+                                height: thumbHeight,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
           Positioned(
             bottom: 16,
-            right: 16,
+            right: 48,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: _scrollToTop, // Clique simples: vai para o topo
-                  onLongPressStart: (_) => _startManualScroll(true), // Segurar: rebobina (sobe)
-                  onLongPressEnd: (_) => _stopManualScroll(), // Soltar: volta ao estado normal
+                  onTapDown: (_) => _startManualScroll(true), // Pressionou: sobe instantaneamente
+                  onTapUp: (_) => _stopManualScroll(), // Soltou: para
+                  onTapCancel: () => _stopManualScroll(), // Cancelou: para
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -232,16 +420,16 @@ class _PresentationScreenState extends State<PresentationScreen> {
                 ),
                 const SizedBox(height: 12),
                 GestureDetector(
-                  onTap: _scrollToBottom, // Clique simples: vai para o rodapé
-                  onLongPressStart: (_) => _startManualScroll(false), // Segurar: avança (desce)
-                  onLongPressEnd: (_) => _stopManualScroll(), // Soltar: volta ao estado normal
+                  onTapDown: (_) => _startManualScroll(false), // Pressionou: desce instantaneamente
+                  onTapUp: (_) => _stopManualScroll(), // Soltou: para
+                  onTapCancel: () => _stopManualScroll(), // Cancelou: para
                   child: Container(
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.primaryContainer,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),

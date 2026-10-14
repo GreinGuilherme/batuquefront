@@ -31,11 +31,12 @@ class PontoCard extends StatelessWidget {
     final nomeEntidade = nomeEntidadeOverride ?? entidade?.nomeEntidade ?? 'Sem Entidade Vinculada';
 
     return Card(
+      margin: const EdgeInsets.only(bottom: 6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 7.0),
+          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
           child: Row(
             children: [
               IconButton.filledTonal(
@@ -66,7 +67,7 @@ class PontoCard extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
@@ -85,7 +86,7 @@ class PontoCard extends StatelessWidget {
                               fontSize: 12,
                               color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),

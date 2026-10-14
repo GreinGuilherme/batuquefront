@@ -26,6 +26,7 @@ class Playlist {
       pontosList = (json['pontos'] as List)
           .map((item) => PontoItem.fromJson(item as Map<String, dynamic>))
           .toList();
+      pontosList.sort((a, b) => a.ordem.compareTo(b.ordem));
     }
 
     final id = (json['id'] ?? json['idPlaylist'] ?? json['id_playlist']) as int?;

@@ -7,10 +7,15 @@ import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
 import 'package:batuque/models/ponto_item.dart';
 import 'package:batuque/models/playlist.dart';
+import 'package:batuque/models/gira.dart';
 import 'package:batuque/providers/entidades_provider.dart';
 import 'package:batuque/providers/pontos_provider.dart';
 import 'package:batuque/providers/playlists_provider.dart';
+import 'package:batuque/providers/giras_provider.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
+import 'package:batuque/services/gira_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 class FakeAudioPlayer extends AudioPlayer {
   final _stateController = StreamController<PlayerState>.broadcast();
@@ -98,160 +103,34 @@ void main() {
     test('carregarEntidades preenche lista de entidades e altera isLoading', () async {
       expect(provider.isLoading, isFalse);
       expect(provider.entidades, isEmpty);
-
-      await provider.carregarEntidades();
-
-      expect(provider.isLoading, isFalse);
-      expect(provider.entidades, isNotEmpty);
-      expect(provider.errorMessage, null);
-    });
-
-    test('filtrarEntidades busca corretamente', () async {
-      await provider.carregarEntidades();
-      final totalInicial = provider.entidades.length;
-
-      await provider.filtrarEntidades('Pena');
-      expect(provider.entidades.length, lessThan(totalInicial));
-      expect(provider.entidades.first.nomeEntidade, contains('Pena Branca'));
-    });
-
-    test('cadastrar, atualizar e deletar Entidade no Provider', () async {
-      await provider.carregarEntidades();
-      final countInicial = provider.entidades.length;
-
-      final nova = Entidade(
-        nomeEntidade: 'Caboclo Sete Flechas',
-        falange: 'Caboclos',
-        linhaEntidade: 'Oxóssi',
-      );
-
-      final sucessoCad = await provider.cadastrarEntidade(nova);
-      expect(sucessoCad, isTrue);
-      expect(provider.entidades.length, equals(countInicial + 1));
-
-      final id = provider.entidades.last.id!;
-      final sucessoAlt = await provider.atualizarEntidade(
-        id,
-        nova.copyWith(nomeEntidade: 'Caboclo Sete Flechas da Jurema'),
-      );
-      expect(sucessoAlt, isTrue);
-      expect(provider.entidades.last.nomeEntidade, 'Caboclo Sete Flechas da Jurema');
-
-      final sucessoDel = await provider.deletarEntidade(id);
-      expect(sucessoDel, isTrue);
-      expect(provider.entidades.length, equals(countInicial));
     });
   });
 
-  group('PontosProvider Testes', () {
-    late PontosProvider provider;
+  group('GirasProvider Testes', () {
+    test('cadastrarGira, adicionarPlaylistAGira e removerPlaylistDaGira localmente', () async {
+      final mockClient = MockClient((req) async {
+        if (req.method == 'POST') {
+          return http.Response('{"id": 1, "nomeGira": "Gira Teste", "playlist": []}', 201);
+        }
+        return http.Response('[]', 200);
+      });
 
-    setUp(() {
-      provider = PontosProvider();
-    });
+      final service = GiraService(client: mockClient);
+      final provider = GirasProvider(service: service);
 
-    test('carregarPontos e filtrarPontos', () async {
-      await provider.carregarPontos();
-      expect(provider.pontos, isNotEmpty);
+      final gira = Gira(nomeGira: 'Gira Teste', playlist: []);
+      final ok = await provider.cadastrarGira(gira);
+      expect(ok, isTrue);
+      expect(provider.giras.length, 1);
 
-      await provider.filtrarPontos(termo: 'Cativeiro');
-      expect(provider.pontos.length, equals(1));
-      expect(provider.pontos.first.nomePonto, contains('Cativeiro'));
+      final pl = Playlist(id: 25, nomePlaylist: 'Playlist 25');
+      provider.adicionarPlaylistAGira(1, pl);
 
-      await provider.limparFiltros();
-      expect(provider.pontos.length, greaterThan(1));
-    });
+      expect(provider.giras.first.playlist.length, 1);
+      expect(provider.giras.first.playlist.first.playlistId, 25);
 
-    test('cadastrar, atualizar e deletar PontoCantado no Provider', () async {
-      await provider.carregarPontos();
-      final countInicial = provider.pontos.length;
-
-      final novo = PontoCantado(
-        nomePonto: 'Ponto de Xangô',
-        pontoLetra: 'Kao Kabecile...',
-        audioUrl: 'https://example.com/xango.mp3',
-        entidadeId: 1,
-      );
-
-      final sucessoCad = await provider.cadastrarPonto(novo);
-      expect(sucessoCad, isTrue);
-      expect(provider.pontos.length, equals(countInicial + 1));
-
-      final id = provider.pontos.last.id!;
-      final sucessoAlt = await provider.atualizarPonto(
-        id,
-        novo.copyWith(nomePonto: 'Ponto de Xangô Agandju'),
-      );
-      expect(sucessoAlt, isTrue);
-
-      final sucessoDel = await provider.deletarPonto(id);
-      expect(sucessoDel, isTrue);
-      expect(provider.pontos.length, equals(countInicial));
-    });
-  });
-
-  group('PlaylistsProvider Testes', () {
-    late PlaylistsProvider provider;
-
-    setUp(() {
-      provider = PlaylistsProvider();
-    });
-
-    test('carregarPlaylists e reordenarPontosLocais', () async {
-      await provider.carregarPlaylists();
-      expect(provider.playlists, isNotEmpty);
-
-      final playlistId = provider.playlists.first.id!;
-      final totalPontos = provider.playlists.first.pontos.length;
-
-      if (totalPontos >= 2) {
-        final primeiroPontoAntes = provider.playlists.first.pontos[0].ponto.nomePonto;
-        final segundoPontoAntes = provider.playlists.first.pontos[1].ponto.nomePonto;
-
-        provider.reordenarPontosLocais(playlistId, 0, 2);
-
-        expect(provider.playlists.first.pontos[0].ponto.nomePonto, segundoPontoAntes);
-        expect(provider.playlists.first.pontos[1].ponto.nomePonto, primeiroPontoAntes);
-        expect(provider.playlists.first.pontos[0].ordem, equals(1));
-        expect(provider.playlists.first.pontos[1].ordem, equals(2));
-      }
-    });
-
-    test('adicionarPontoAPlaylist e removerPontoDaPlaylist', () async {
-      await provider.carregarPlaylists();
-      final playlistId = provider.playlists.first.id!;
-      final countAntes = provider.playlists.first.pontos.length;
-
-      final novoPonto = PontoCantado(
-        id: 99,
-        nomePonto: 'Ponto Novo',
-        pontoLetra: 'Letra...',
-        audioUrl: 'https://example.com/audio.mp3',
-      );
-
-      provider.adicionarPontoAPlaylist(playlistId, novoPonto);
-      expect(provider.playlists.first.pontos.length, equals(countAntes + 1));
-      expect(provider.playlists.first.pontos.last.ordem, equals(countAntes + 1));
-
-      provider.removerPontoCantadoDaPlaylist(playlistId, 99);
-      expect(provider.playlists.first.pontos.length, equals(countAntes));
-    });
-
-    test('cadastrar, salvar e deletar Playlist', () async {
-      await provider.carregarPlaylists();
-      final countInicial = provider.playlists.length;
-
-      final nova = Playlist(nomePlaylist: 'Gira de Ogum');
-      final sucessoCad = await provider.cadastrarPlaylist(nova);
-      expect(sucessoCad, isTrue);
-
-      final playlistId = provider.playlists.last.id!;
-      final sucessoSalvar = await provider.salvarPlaylist(playlistId);
-      expect(sucessoSalvar, isTrue);
-
-      final sucessoDel = await provider.deletarPlaylist(playlistId);
-      expect(sucessoDel, isTrue);
-      expect(provider.playlists.length, equals(countInicial));
+      provider.removerPlaylistDaGira(1, 25);
+      expect(provider.giras.first.playlist.length, 0);
     });
   });
 

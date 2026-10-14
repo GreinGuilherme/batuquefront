@@ -5,8 +5,8 @@ import '../models/entidade.dart';
 import '../providers/pontos_provider.dart';
 import '../providers/entidades_provider.dart';
 import '../providers/audio_player_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/ponto_card.dart';
-import '../widgets/ponto_form_dialog.dart';
 import 'ponto_detail_screen.dart';
 
 class PontosScreen extends StatefulWidget {
@@ -147,9 +147,12 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
     final pontosProvider = context.watch<PontosProvider>();
     final entidadesProvider = context.watch<EntidadesProvider>();
     final audioProvider = context.watch<AudioPlayerProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     final pontos = pontosProvider.pontos;
     final entidades = entidadesProvider.todasEntidades;
+
+    final canEdit = authProvider.isLoggedIn && (authProvider.userRole == 'ADM' || authProvider.userRole == 'FILHO');
 
     // Calcular características disponíveis para o filtro em cascata
     final todasLinhas = entidades.map((e) => e.linhaEntidade).where((l) => l.isNotEmpty).toSet().toList()..sort();
@@ -223,19 +226,25 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: () => PontoFormDialog.show(context),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                if (canEdit) ...[
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const PontoDetailScreen(),
+                      ),
                     ),
-                    minimumSize: const Size(38, 38),
-                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    style: IconButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: const Size(38, 38),
+                      padding: EdgeInsets.zero,
+                    ),
+                    tooltip: 'Novo Ponto',
                   ),
-                  tooltip: 'Novo Ponto',
-                ),
+                ],
               ],
             ),
           ),
@@ -539,35 +548,38 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
 
                             final isPlaying = audioProvider.currentPonto?.id == ponto.id && audioProvider.isPlaying;
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: PontoCard(
-                                ponto: ponto,
-                                entidade: entidadeVinculada,
-                                isPlaying: isPlaying,
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (context) => PontoDetailScreen(ponto: ponto),
-                                    ),
-                                  );
-                                },
-                                onPlayTap: () {
-                                  if (isPlaying) {
-                                    audioProvider.pausar();
-                                  } else if (audioProvider.currentPonto?.id == ponto.id && audioProvider.isPaused) {
-                                    audioProvider.retomar();
-                                  } else {
-                                    audioProvider.tocarPonto(ponto);
-                                  }
-                                },
-                                onEdit: () => PontoFormDialog.show(context, ponto: ponto),
-                                onDelete: () => _confirmDelete(
-                                  context,
-                                  ponto,
-                                  nomeEntidade: entidadeVinculada?.nomeEntidade,
-                                ),
-                              ),
+                            return PontoCard(
+                              ponto: ponto,
+                              entidade: entidadeVinculada,
+                              isPlaying: isPlaying,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PontoDetailScreen(ponto: ponto),
+                                  ),
+                                );
+                              },
+                              onPlayTap: () {
+                                if (isPlaying) {
+                                  audioProvider.pausar();
+                                } else if (audioProvider.currentPonto?.id == ponto.id && audioProvider.isPaused) {
+                                  audioProvider.retomar();
+                                } else {
+                                  audioProvider.tocarPonto(ponto);
+                                }
+                              },
+                              onEdit: canEdit ? () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) => PontoDetailScreen(ponto: ponto, startInEditMode: true),
+                                  ),
+                                );
+                              } : null,
+                              onDelete: canEdit ? () => _confirmDelete(
+                                context,
+                                ponto,
+                                nomeEntidade: entidadeVinculada?.nomeEntidade,
+                              ) : null,
                             );
                           },
                         ),

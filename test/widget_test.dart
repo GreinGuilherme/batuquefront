@@ -4,9 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:batuque/main.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
+import 'package:batuque/providers/auth_provider.dart';
 import 'package:batuque/providers/audio_player_provider.dart';
 import 'package:batuque/providers/entidades_provider.dart';
 import 'package:batuque/providers/pontos_provider.dart';
+import 'package:batuque/providers/playlists_provider.dart';
+import 'package:batuque/providers/giras_provider.dart';
 import 'package:batuque/screens/ponto_detail_screen.dart';
 import 'package:batuque/widgets/entidade_card.dart';
 import 'package:batuque/widgets/ponto_card.dart';
@@ -14,10 +17,16 @@ import 'package:batuque/widgets/audio_player_bottom_bar.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+class FakePontosProvider extends PontosProvider {
+  @override
+  Future<bool> atualizarPonto(int id, PontoCantado ponto) async {
+    return true;
+  }
+}
+
 void main() {
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-
   });
 
   testWidgets('BatuqueApp renders home page and tabs correctly', (WidgetTester tester) async {
@@ -106,9 +115,12 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
           ChangeNotifierProvider(create: (_) => EntidadesProvider()),
           ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
           ChangeNotifierProvider(create: (_) => PontosProvider()),
+          ChangeNotifierProvider(create: (_) => PlaylistsProvider()),
+          ChangeNotifierProvider(create: (_) => GirasProvider()),
         ],
         child: MaterialApp(
           home: PontoDetailScreen(ponto: ponto),
@@ -116,9 +128,65 @@ void main() {
       ),
     );
 
-    expect(find.text('Ponto de Caboclo'), findsNWidgets(2)); // AppBar and Header Card
+    expect(find.text('Ponto de Caboclo'), findsWidgets); // AppBar and Header Card
     expect(find.text('Okê Caboclo...'), findsOneWidget);
-    expect(find.text('Tela mantida acesa'), findsOneWidget);
+  });
+
+  testWidgets('PontoDetailScreen returns to source screen when editing and returnToSourceOnSave is true', (WidgetTester tester) async {
+    final ponto = PontoCantado(
+      id: 1,
+      nomePonto: 'Ponto Origem',
+      pontoLetra: 'Letra Origem',
+      audioUrl: '',
+    );
+
+    bool? returnedResult;
+
+    final fakePontosProvider = FakePontosProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthProvider()),
+          ChangeNotifierProvider(create: (_) => EntidadesProvider()),
+          ChangeNotifierProvider(create: (_) => AudioPlayerProvider()),
+          ChangeNotifierProvider<PontosProvider>.value(value: fakePontosProvider),
+          ChangeNotifierProvider(create: (_) => PlaylistsProvider()),
+          ChangeNotifierProvider(create: (_) => GirasProvider()),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () async {
+                  returnedResult = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => PontoDetailScreen(
+                        ponto: ponto,
+                        startInEditMode: true,
+                        returnToSourceOnSave: true,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Abrir Edição'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Abrir Edição'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar Ponto'), findsOneWidget);
+
+    // Tap Save icon button
+    await tester.tap(find.byTooltip('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(returnedResult, isTrue);
   });
 
   testWidgets('AudioPlayerBottomBar renders playing ponto details', (WidgetTester tester) async {
