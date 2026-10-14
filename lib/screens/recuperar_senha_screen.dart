@@ -33,10 +33,21 @@ class _RecuperarSenhaScreenState extends State<RecuperarSenhaScreen> {
   final _emailRegex =
       RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
 
+  // Regex para validação da nova senha (deve conter letras, números e caractere especial, max 12)
+  final _hasLetter = RegExp(r'[a-zA-Z]');
+  final _hasDigit = RegExp(r'\d');
+  final _hasSpecialChar =
+      RegExp(r'[!@#$%^&*()_+\-=\[\]{};:"\\|,.<>/?~`]');
+
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController(text: widget.emailInicial ?? '');
+
+    // Ouvinte para atualizar a lista de checagem da senha em tempo real
+    _novaSenhaController.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -74,16 +85,18 @@ class _RecuperarSenhaScreenState extends State<RecuperarSenhaScreen> {
     return null;
   }
 
-  /// Validador de Nova Senha
+  /// Validador de Nova Senha (valida exigências idênticas ao cadastro)
   String? _validarNovaSenha(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Informe a nova senha.';
+      return 'Não pode ser nulo.';
     }
-    if (value.length < 6) {
-      return 'A senha deve ter no mínimo 6 caracteres.';
+    if (value.length > 12) {
+      return 'Máximo de 12 caracteres.';
     }
-    if (value.length > 50) {
-      return 'Máximo de 50 caracteres.';
+    if (!_hasLetter.hasMatch(value) ||
+        !_hasDigit.hasMatch(value) ||
+        !_hasSpecialChar.hasMatch(value)) {
+      return 'A senha não atende a todas as exigências.';
     }
     return null;
   }
@@ -97,6 +110,69 @@ class _RecuperarSenhaScreenState extends State<RecuperarSenhaScreen> {
       return 'As senhas não coincidem.';
     }
     return null;
+  }
+
+  /// Widget de Lista com Check para as exigências da senha
+  Widget _buildPasswordChecklist({required String senha}) {
+    final hasLength = senha.isNotEmpty && senha.length <= 12;
+    final hasLetter = _hasLetter.hasMatch(senha);
+    final hasDigit = _hasDigit.hasMatch(senha);
+    final hasSpecial = _hasSpecialChar.hasMatch(senha);
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.amber.shade700.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Exigências da Senha:',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildCheckItem('Até 12 caracteres', hasLength),
+          _buildCheckItem('Contém ao menos uma letra', hasLetter),
+          _buildCheckItem('Contém ao menos um número', hasDigit),
+          _buildCheckItem('Contém ao menos um caractere especial (!@#\$...)', hasSpecial),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckItem(String label, bool satisfied) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Icon(
+            satisfied ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            size: 16,
+            color: satisfied ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: satisfied ? Colors.green : Colors.grey.shade400,
+                fontWeight: satisfied ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Etapa 1: Solicitar Envio do Código
@@ -453,10 +529,11 @@ class _RecuperarSenhaScreenState extends State<RecuperarSenhaScreen> {
         TextFormField(
           controller: _novaSenhaController,
           obscureText: _obscureNovaSenha,
+          maxLength: 12,
           decoration: InputDecoration(
             labelText: 'Nova Senha *',
-            hintText: 'Mínimo de 6 caracteres',
             prefixIcon: const Icon(Icons.lock_outline),
+            counterText: '',
             suffixIcon: IconButton(
               icon: Icon(
                 _obscureNovaSenha
@@ -474,6 +551,11 @@ class _RecuperarSenhaScreenState extends State<RecuperarSenhaScreen> {
             ),
           ),
           validator: _validarNovaSenha,
+        ),
+
+        // Lista com Check para as exigências da senha (em tempo real)
+        _buildPasswordChecklist(
+          senha: _novaSenhaController.text,
         ),
         const SizedBox(height: 16),
 
