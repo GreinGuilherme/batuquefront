@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:batuque/models/entidade.dart';
 import 'package:batuque/models/ponto_cantado.dart';
-import 'package:batuque/models/ponto_item.dart';
 import 'package:batuque/models/playlist.dart';
 import 'package:batuque/models/gira.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,12 +11,81 @@ import 'package:batuque/services/entidade_service.dart';
 import 'package:batuque/services/ponto_service.dart';
 import 'package:batuque/services/playlist_service.dart';
 import 'package:batuque/services/gira_service.dart';
+import 'package:batuque/services/auth_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  group('AuthService Testes', () {
+    test('solicitarCodigoRecuperacao envia POST para /auth/esqueci-senha com headers corretos', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+      late Map<String, String> capturedHeaders;
+      late Map<String, dynamic> capturedBody;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+        capturedHeaders = request.headers;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+        return http.Response(
+          jsonEncode({'mensagem': 'Caso o e-mail esteja cadastrado, você receberá um código de recuperação em instantes.'}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final service = AuthService(client: client);
+      final msg = await service.solicitarCodigoRecuperacao(email: 'teste@email.com');
+
+      expect(capturedMethod, 'POST');
+      expect(capturedUrl, contains('/auth/esqueci-senha'));
+      expect(capturedHeaders['x-app-batuque'], 'GiraSegura2026');
+      expect(capturedHeaders['User-Agent'], contains('BatuqueFlutterApp'));
+      expect(capturedBody['email'], 'teste@email.com');
+      expect(msg, contains('Caso o e-mail esteja cadastrado'));
+    });
+
+    test('redefinirSenha envia POST para /auth/redefinir-senha com headers corretos', () async {
+      late String capturedMethod;
+      late String capturedUrl;
+      late Map<String, String> capturedHeaders;
+      late Map<String, dynamic> capturedBody;
+
+      final client = MockClient((request) async {
+        capturedMethod = request.method;
+        capturedUrl = request.url.toString();
+        capturedHeaders = request.headers;
+        capturedBody = jsonDecode(request.body) as Map<String, dynamic>;
+
+        return http.Response(
+          jsonEncode({'mensagem': 'Senha atualizada com sucesso! Faça login com sua nova senha.'}),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+
+      final service = AuthService(client: client);
+      final msg = await service.redefinirSenha(
+        email: 'teste@email.com',
+        codigo: '123456',
+        novaSenha: 'novaSenha123',
+      );
+
+      expect(capturedMethod, 'POST');
+      expect(capturedUrl, contains('/auth/redefinir-senha'));
+      expect(capturedHeaders['x-app-batuque'], 'GiraSegura2026');
+      expect(capturedHeaders['User-Agent'], contains('BatuqueFlutterApp'));
+      expect(capturedBody['email'], 'teste@email.com');
+      expect(capturedBody['codigo'], '123456');
+      expect(capturedBody['novaSenha'], 'novaSenha123');
+      expect(msg, contains('Senha atualizada com sucesso!'));
+    });
   });
 
   group('EntidadeService Testes', () {

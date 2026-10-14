@@ -144,6 +144,53 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Solicita o código de recuperação de senha por e-mail
+  Future<String?> solicitarCodigoRecuperacao(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final mensagem =
+          await _authService.solicitarCodigoRecuperacao(email: email);
+      _isLoading = false;
+      notifyListeners();
+      return mensagem;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Redefine a senha do usuário utilizando e-mail, código e nova senha
+  Future<String?> redefinirSenha({
+    required String email,
+    required String codigo,
+    required String novaSenha,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final mensagem = await _authService.redefinirSenha(
+        email: email,
+        codigo: codigo,
+        novaSenha: novaSenha,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return mensagem;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
   /// Efetua o logout do usuário e limpa o token/cookie armazenado
   Future<void> logout() async {
     await _authService.logout();

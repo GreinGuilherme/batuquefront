@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'recuperar_senha_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -364,7 +365,33 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           validator: _validarSenhaLogin,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 8),
+
+                        // Link Esqueci Minha Senha
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => RecuperarSenhaScreen(
+                                    emailInicial:
+                                        _loginEmailController.text.trim(),
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              'Esqueci minha senha',
+                              style: GoogleFonts.poppins(
+                                color: goldColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
                         // Botão Entrar
                         SizedBox(

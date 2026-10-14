@@ -208,6 +208,114 @@ class AuthService {
     }
   }
 
+  /// Solicita o código de recuperação de senha enviado por e-mail (@PostMapping("/auth/esqueci-senha"))
+  Future<String> solicitarCodigoRecuperacao({required String email}) async {
+    Uri uri = _getUri('/auth/esqueci-senha');
+
+    final bodyJson = jsonEncode({
+      'email': email.trim(),
+    });
+
+    try {
+      var response = await _client
+          .post(
+            uri,
+            headers: await getAuthHeaders(),
+            body: bodyJson,
+          )
+          .timeout(ApiConfig.timeout);
+
+      // Fallback para /esqueci-senha caso o controller não utilize o prefixo /auth
+      if (response.statusCode == 404) {
+        uri = _getUri('/esqueci-senha');
+        response = await _client
+            .post(
+              uri,
+              headers: await getAuthHeaders(),
+              body: bodyJson,
+            )
+            .timeout(ApiConfig.timeout);
+      }
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        final responseBody = utf8.decode(response.bodyBytes).trim();
+        if (responseBody.isNotEmpty && responseBody.startsWith('{')) {
+          final Map<String, dynamic> data = jsonDecode(responseBody);
+          final msg = data['mensagem'] ?? data['message'];
+          if (msg != null && msg.toString().isNotEmpty) {
+            return msg.toString();
+          }
+        }
+        return 'Caso o e-mail esteja cadastrado, você receberá um código de recuperação em instantes.';
+      } else {
+        final errorMsg = _extrairMensagemErro(response);
+        throw Exception(
+            errorMsg ?? 'Erro ao solicitar código de recuperação.');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Redefine a senha utilizando e-mail, código OTP e a nova senha (@PostMapping("/auth/redefinir-senha"))
+  Future<String> redefinirSenha({
+    required String email,
+    required String codigo,
+    required String novaSenha,
+  }) async {
+    Uri uri = _getUri('/auth/redefinir-senha');
+
+    final bodyJson = jsonEncode({
+      'email': email.trim(),
+      'codigo': codigo.trim(),
+      'novaSenha': novaSenha,
+    });
+
+    try {
+      var response = await _client
+          .post(
+            uri,
+            headers: await getAuthHeaders(),
+            body: bodyJson,
+          )
+          .timeout(ApiConfig.timeout);
+
+      // Fallback para /redefinir-senha caso o controller não utilize o prefixo /auth
+      if (response.statusCode == 404) {
+        uri = _getUri('/redefinir-senha');
+        response = await _client
+            .post(
+              uri,
+              headers: await getAuthHeaders(),
+              body: bodyJson,
+            )
+            .timeout(ApiConfig.timeout);
+      }
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        final responseBody = utf8.decode(response.bodyBytes).trim();
+        if (responseBody.isNotEmpty && responseBody.startsWith('{')) {
+          final Map<String, dynamic> data = jsonDecode(responseBody);
+          final msg = data['mensagem'] ?? data['message'];
+          if (msg != null && msg.toString().isNotEmpty) {
+            return msg.toString();
+          }
+        }
+        return 'Senha atualizada com sucesso! Faça login com sua nova senha.';
+      } else {
+        final errorMsg = _extrairMensagemErro(response);
+        throw Exception(errorMsg ??
+            'Erro ao redefinir senha. Verifique o código e tente novamente.');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Extrai a Role do usuário a partir do mapa JSON da resposta de login ou do JWT
   static String _extrairRole(Map<String, dynamic> map) {
     // 1. Tenta chaves diretas no mapa principal
