@@ -99,7 +99,7 @@ class AudioPlayerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool _isYouTubeUrl(String url) {
+  bool isYouTubeUrl(String url) {
     final lower = url.toLowerCase();
     return lower.contains('youtube.com/') || lower.contains('youtu.be/');
   }
@@ -140,7 +140,7 @@ class AudioPlayerProvider extends ChangeNotifier {
       }
 
       String playUrl = trimmedUrl;
-      if (_isYouTubeUrl(trimmedUrl)) {
+      if (isYouTubeUrl(trimmedUrl)) {
         try {
           final yt = YoutubeExplode();
           final manifest = await yt.videos.streamsClient.getManifest(trimmedUrl);
@@ -211,7 +211,7 @@ class AudioPlayerProvider extends ChangeNotifier {
     }
 
     String playUrl = trimmedUrl;
-    if (_isYouTubeUrl(trimmedUrl)) {
+    if (isYouTubeUrl(trimmedUrl)) {
       try {
         final yt = YoutubeExplode();
         final manifest = await yt.videos.streamsClient.getManifest(trimmedUrl);

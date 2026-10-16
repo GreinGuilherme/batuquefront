@@ -12,6 +12,8 @@ import 'entidades_screen.dart';
 import 'pontos_screen.dart';
 import 'playlists_screen.dart';
 import 'login_screen.dart';
+import 'profile_screen.dart';
+import 'calendar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,148 +50,127 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _mostrarPerfilOuLogoutDialog(BuildContext context, AuthProvider auth) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: const [
-            Icon(Icons.account_circle, color: Color(0xFFFFD700)),
-            SizedBox(width: 8),
-            Text('Perfil do Usuário'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person),
-              title: const Text('Nome'),
-              subtitle: Text(
-                auth.userName ?? 'Não informado',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.email),
-              title: const Text('E-mail'),
-              subtitle: Text(
-                auth.userEmail ?? 'Não informado',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.security),
-              title: const Text('Perfil (Role)'),
-              subtitle: Text(
-                auth.userRole ?? 'USUARIO',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Fechar'),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade800,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              Navigator.of(ctx).pop();
-              await auth.logout();
-              if (mounted) {
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Sessão encerrada com sucesso.'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            },
-            icon: const Icon(Icons.logout, size: 18),
-            label: const Text('Sair'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      appBar: AppBar(
-        leadingWidth: 140,
-        leading: Consumer<AuthProvider>(
+      drawer: Drawer(
+        child: Consumer<AuthProvider>(
           builder: (context, auth, _) {
-            if (auth.isLoggedIn) {
-              return InkWell(
-                onTap: () => _mostrarPerfilOuLogoutDialog(context, auth),
-                borderRadius: BorderRadius.circular(20),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 8.0, top: 4.0, bottom: 4.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+            return ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                DrawerHeader(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       const CircleAvatar(
-                        radius: 12,
+                        radius: 30,
                         backgroundColor: Color(0xFFFFD700),
-                        child: Icon(Icons.person, size: 14, color: Colors.black87),
+                        child: Icon(Icons.person, size: 36, color: Colors.black87),
                       ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          auth.userName ?? auth.userEmail?.split('@').first ?? 'Usuário',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      const SizedBox(height: 12),
+                      Text(
+                        auth.isLoggedIn 
+                            ? (auth.userName ?? auth.userEmail?.split('@').first ?? 'Usuário') 
+                            : 'Visitante',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (auth.isLoggedIn && auth.userEmail != null)
+                        Text(
+                          auth.userEmail!,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
                     ],
                   ),
                 ),
-              );
-            } else {
-              return TextButton.icon(
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  alignment: Alignment.centerLeft,
+                ListTile(
+                  leading: const Icon(Icons.account_circle),
+                  title: const Text('Conta'),
+                  onTap: () {
+                    Navigator.pop(context); // Fechar drawer
+                    if (auth.isLoggedIn) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                      );
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    }
+                  },
                 ),
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LoginScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.login_rounded, size: 18, color: Color(0xFFFFD700)),
-                label: const Text(
-                  'Entrar',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFFFD700),
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.calendar_month),
+                  title: const Text('Calendário'),
+                  onTap: () {
+                    Navigator.pop(context); // Fechar drawer
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                    );
+                  },
                 ),
-              );
-            }
+              ],
+            );
           },
+        ),
+      ),
+      appBar: AppBar(
+        leadingWidth: 140,
+        leading: Builder(
+          builder: (context) {
+            return Consumer<AuthProvider>(
+              builder: (context, auth, _) {
+                final displayName = auth.isLoggedIn 
+                    ? (auth.userName ?? auth.userEmail?.split('@').first ?? 'Usuário')
+                    : 'Menu';
+                    
+                return InkWell(
+                  onTap: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0, top: 4.0, bottom: 4.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.menu, size: 24, color: Color(0xFFFFD700)),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            displayName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFFFD700),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          }
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
