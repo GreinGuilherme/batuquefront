@@ -174,6 +174,7 @@ class _PontosScreenState extends State<PontosScreen> with AutomaticKeepAliveClie
         (pontosProvider.entidadeIdFiltro != null ? 1 : 0));
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton.small(
               onPressed: _scrollToTop,

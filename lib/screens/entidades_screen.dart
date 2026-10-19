@@ -170,6 +170,7 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
     final totalFiltrosAtivos = provider.linhasFiltro.length + provider.falangesFiltro.length;
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: _showScrollToTop
           ? FloatingActionButton.small(
               onPressed: _scrollToTop,
