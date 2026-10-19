@@ -117,12 +117,17 @@ class StompService {
         },
         onWebSocketError: (dynamic error) => _log('❌ Erro WS: $error'),
         onStompError: (StompFrame frame) => _log('❌ Erro STOMP Frame: ${frame.body}'),
+        // Funciona perfeitamente no Android/iOS (Conexão nativa)
         webSocketConnectHeaders: {
           'X-App-Batuque': 'GiraSegura2026',
-          'User-Agent': 'BatuqueFlutterApp/1.0',
+          'User-Agent': 'BatuqueFlutterApp/1.0 (Android; iOS)',
         },
+        // Como navegadores bloqueiam headers customizados no WebSocket HTTP,
+        // enviamos os mesmos dados como Headers do STOMP (que a Web permite!)
         stompConnectHeaders: {
           if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+          'X-App-Batuque': 'GiraSegura2026',
+          'User-Agent': 'BatuqueFlutterApp/1.0 (Web; STOMP)',
         },
       ),
     );

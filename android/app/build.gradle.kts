@@ -1,3 +1,5 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -34,6 +36,17 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    packaging {
+        jniLibs.useLegacyPackaging = true
+    }
+
+    applicationVariants.all {
+        val variantVersionName = versionName
+        outputs.all {
+            (this as BaseVariantOutputImpl).outputFileName = "batuque-api-${variantVersionName}.apk"
         }
     }
 }
