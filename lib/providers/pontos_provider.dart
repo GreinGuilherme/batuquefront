@@ -134,7 +134,12 @@ class PontosProvider extends ChangeNotifier {
         }
         final index = _pontos.indexWhere((p) => p.id == ponto.id);
         if (index == -1) {
-          _pontos.add(ponto);
+          final idxSemId = _pontos.indexWhere((p) => p.id == null && p.nomePonto == ponto.nomePonto);
+          if (idxSemId != -1) {
+            _pontos[idxSemId] = ponto;
+          } else {
+            _pontos.add(ponto);
+          }
         } else {
           _pontos[index] = ponto;
         }
@@ -171,7 +176,18 @@ class PontosProvider extends ChangeNotifier {
 
     try {
       final novoPonto = await _service.cadastrarPonto(ponto);
-      _pontos.add(novoPonto);
+      final index = _pontos.indexWhere((p) => p.id == novoPonto.id);
+      if (index != -1) {
+        _pontos[index] = novoPonto;
+      } else {
+        _pontos.add(novoPonto);
+      }
+
+      // Re-busca do backend para garantir consistência total
+      try {
+        await carregarPontos();
+      } catch (_) {}
+
       _isLoading = false;
       notifyListeners();
       return true;

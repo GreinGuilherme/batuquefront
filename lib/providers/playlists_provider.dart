@@ -65,7 +65,12 @@ class PlaylistsProvider extends ChangeNotifier {
         }
         final index = _playlists.indexWhere((p) => p.id == playlist.id);
         if (index == -1) {
-          _playlists.add(playlist);
+          final idxSemId = _playlists.indexWhere((p) => p.id == null && p.nomePlaylist == playlist.nomePlaylist);
+          if (idxSemId != -1) {
+            _playlists[idxSemId] = playlist;
+          } else {
+            _playlists.add(playlist);
+          }
         } else {
           _playlists[index] = playlist;
         }
@@ -102,7 +107,18 @@ class PlaylistsProvider extends ChangeNotifier {
 
     try {
       final nova = await _service.cadastrarPlaylist(playlist);
-      _playlists.add(nova);
+      final index = _playlists.indexWhere((p) => p.id == nova.id);
+      if (index != -1) {
+        _playlists[index] = nova;
+      } else {
+        _playlists.add(nova);
+      }
+
+      // Re-busca do backend para garantir consistência total
+      try {
+        await carregarPlaylists();
+      } catch (_) {}
+
       _isLoading = false;
       notifyListeners();
       return true;

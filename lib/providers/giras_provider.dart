@@ -64,7 +64,12 @@ class GirasProvider extends ChangeNotifier {
         }
         final index = _giras.indexWhere((g) => g.id == gira.id);
         if (index == -1) {
-          _giras.add(gira);
+          final idxSemId = _giras.indexWhere((g) => g.id == null && g.nomeGira == gira.nomeGira);
+          if (idxSemId != -1) {
+            _giras[idxSemId] = gira;
+          } else {
+            _giras.add(gira);
+          }
         } else {
           _giras[index] = gira;
         }
@@ -105,7 +110,18 @@ class GirasProvider extends ChangeNotifier {
 
     try {
       final nova = await _service.cadastrarGira(gira);
-      _giras.add(nova);
+      final index = _giras.indexWhere((g) => g.id == nova.id);
+      if (index != -1) {
+        _giras[index] = nova;
+      } else {
+        _giras.add(nova);
+      }
+
+      // Re-busca do backend para garantir consistência total
+      try {
+        await carregarGiras();
+      } catch (_) {}
+
       _isLoading = false;
       notifyListeners();
       return true;
