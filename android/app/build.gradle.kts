@@ -1,4 +1,20 @@
 import com.android.build.gradle.internal.api.BaseVariantOutputImpl
+import java.io.File
+
+// Lê o arquivo pubspec.yaml para extrair dinamicamente 'name' e 'version'
+val pubspecFile = File(projectDir, "../../pubspec.yaml")
+var appName = "app"
+var appVersion = "1.0.0"
+
+if (pubspecFile.exists()) {
+    pubspecFile.readLines().forEach { line ->
+        if (line.startsWith("name:")) {
+            appName = line.substringAfter("name:").trim()
+        } else if (line.startsWith("version:")) {
+            appVersion = line.substringAfter("version:").trim().substringBefore("+")
+        }
+    }
+}
 
 plugins {
     id("com.android.application")
@@ -44,9 +60,8 @@ android {
     }
 
     applicationVariants.all {
-        val variantVersionName = versionName
         outputs.all {
-            (this as BaseVariantOutputImpl).outputFileName = "batuque-api-${variantVersionName}.apk"
+            (this as BaseVariantOutputImpl).outputFileName = "${appName}-v${appVersion}.apk"
         }
     }
 }
