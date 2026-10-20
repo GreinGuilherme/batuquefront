@@ -30,6 +30,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
   late final PageController _pageController;
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollControllerPlaylists = ScrollController();
+  final ScrollController _scrollControllerGiras = ScrollController();
+  bool _showScrollToTop = false;
 
   bool _isFilterExpanded = false;
   Set<String> _tempSelectedLinhas = {};
@@ -44,6 +47,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedTabIndex);
+    _scrollControllerPlaylists.addListener(_onScrollPlaylists);
+    _scrollControllerGiras.addListener(_onScrollGiras);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<GirasProvider>().carregarGiras();
@@ -51,8 +56,39 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
     });
   }
 
+  void _onScrollPlaylists() {
+    if (_selectedTabIndex != 0) return;
+    if (_scrollControllerPlaylists.offset > 200 && !_showScrollToTop) {
+      setState(() => _showScrollToTop = true);
+    } else if (_scrollControllerPlaylists.offset <= 200 && _showScrollToTop) {
+      setState(() => _showScrollToTop = false);
+    }
+  }
+
+  void _onScrollGiras() {
+    if (_selectedTabIndex != 1) return;
+    if (_scrollControllerGiras.offset > 200 && !_showScrollToTop) {
+      setState(() => _showScrollToTop = true);
+    } else if (_scrollControllerGiras.offset <= 200 && _showScrollToTop) {
+      setState(() => _showScrollToTop = false);
+    }
+  }
+
+  void _scrollToTop() {
+    final controller = _selectedTabIndex == 0 ? _scrollControllerPlaylists : _scrollControllerGiras;
+    controller.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   void dispose() {
+    _scrollControllerPlaylists.removeListener(_onScrollPlaylists);
+    _scrollControllerPlaylists.dispose();
+    _scrollControllerGiras.removeListener(_onScrollGiras);
+    _scrollControllerGiras.dispose();
     _pageController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -270,6 +306,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
     }).toList();
 
     return Scaffold(
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
+      floatingActionButton: _showScrollToTop
+          ? FloatingActionButton.small(
+              onPressed: _scrollToTop,
+              tooltip: 'Voltar ao topo',
+              child: const Icon(Icons.arrow_upward_rounded),
+            )
+          : null,
       body: Column(
         children: [
           // Search & Action Header
@@ -512,6 +556,14 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                     setState(() {
                       _selectedTabIndex = index;
                       _searchController.clear();
+                      
+                      // Check scroll position of the new tab to determine if button should show
+                      final currentController = index == 0 ? _scrollControllerPlaylists : _scrollControllerGiras;
+                      if (currentController.hasClients) {
+                        _showScrollToTop = currentController.offset > 200;
+                      } else {
+                        _showScrollToTop = false;
+                      }
                     });
                   }
                 },
@@ -833,6 +885,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                   ),
                 )
               : ListView.builder(
+                  controller: _scrollControllerPlaylists,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   itemCount: playlists.length,
@@ -978,6 +1031,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> with AutomaticKeepAli
                   ),
                 )
               : ListView.builder(
+                  controller: _scrollControllerGiras,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   itemCount: giras.length,

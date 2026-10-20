@@ -51,22 +51,70 @@ class PlaylistsProvider extends ChangeNotifier {
 
   /// Método para sincronizar com eventos do WebSocket/STOMP
   void sincronizar(SyncEvent event) {
+    if (kDebugMode) {
+      debugPrint('🔄 [PlaylistsProvider.sincronizar] Ação: "${event.acao}", Dados: ${event.dados}');
+    }
+
     if (event.acao == "CREATE") {
-      final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
-      final index = _playlists.indexWhere((p) => p.id == playlist.id);
-      if (index == -1) {
-        _playlists.add(playlist);
+      if (event.dados is Map<String, dynamic>) {
+        final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
+        if (playlist.id == null) {
+          debugPrint('⚠️ [PlaylistsProvider] ATENÇÃO: Playlist criada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [PlaylistsProvider] Nova Playlist sincronizada: ID=${playlist.id}, Nome="${playlist.nomePlaylist}"');
+        }
+        final index = _playlists.indexWhere((p) => p.id == playlist.id);
+        
+        Playlist finalPlaylist = playlist;
+
+        if (index == -1) {
+          final idxSemId = _playlists.indexWhere((p) => p.id == null && p.nomePlaylist == playlist.nomePlaylist);
+          if (idxSemId != -1) {
+            final oldPlaylist = _playlists[idxSemId];
+            final mergedPontos = _mergePontos(playlist.pontos, oldPlaylist.pontos);
+            finalPlaylist = playlist.copyWith(pontos: mergedPontos);
+            _playlists[idxSemId] = finalPlaylist;
+          } else {
+            _playlists.add(playlist);
+          }
+        } else {
+          final oldPlaylist = _playlists[index];
+          final mergedPontos = _mergePontos(playlist.pontos, oldPlaylist.pontos);
+          finalPlaylist = playlist.copyWith(pontos: mergedPontos);
+          _playlists[index] = finalPlaylist;
+        }
+
+        if (finalPlaylist.pontos.any((p) => p.ponto.nomePonto.isEmpty)) {
+          carregarPlaylists();
+        }
       }
     } else if (event.acao == "UPDATE") {
-      final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
-      final index = _playlists.indexWhere((p) => p.id == playlist.id);
-      if (index != -1) {
-        _playlists[index] = playlist;
-      } else {
-        _playlists.add(playlist);
+      if (event.dados is Map<String, dynamic>) {
+        final playlist = Playlist.fromJson(event.dados as Map<String, dynamic>);
+        if (playlist.id == null) {
+          debugPrint('⚠️ [PlaylistsProvider] ATENÇÃO: Playlist atualizada veio com ID NULL!');
+        } else {
+          debugPrint('✅ [PlaylistsProvider] Playlist atualizada sincronizada: ID=${playlist.id}, Nome="${playlist.nomePlaylist}"');
+        }
+        final index = _playlists.indexWhere((p) => p.id == playlist.id);
+        
+        Playlist finalPlaylist = playlist;
+        if (index != -1) {
+          final oldPlaylist = _playlists[index];
+          final mergedPontos = _mergePontos(playlist.pontos, oldPlaylist.pontos);
+          finalPlaylist = playlist.copyWith(pontos: mergedPontos);
+          _playlists[index] = finalPlaylist;
+        } else {
+          _playlists.add(playlist);
+        }
+
+        if (finalPlaylist.pontos.any((p) => p.ponto.nomePonto.isEmpty)) {
+          carregarPlaylists();
+        }
       }
     } else if (event.acao == "DELETE") {
       final id = event.idParaDeletar;
+      debugPrint('🗑️ [PlaylistsProvider] Playlist deletada sincronizada: ID=$id');
       if (id != null) {
         _playlists.removeWhere((p) => p.id == id);
       }
@@ -81,7 +129,18 @@ class PlaylistsProvider extends ChangeNotifier {
 
     try {
       final nova = await _service.cadastrarPlaylist(playlist);
-      _playlists.add(nova);
+      final index = _playlists.indexWhere((p) => p.id == nova.id);
+      if (index != -1) {
+        _playlists[index] = nova;
+      } else {
+        _playlists.add(nova);
+      }
+
+      // Re-busca do backend para garantir consistência total
+      try {
+        await carregarPlaylists();
+      } catch (_) {}
+
       _isLoading = false;
       notifyListeners();
       return true;
@@ -93,6 +152,21 @@ class PlaylistsProvider extends ChangeNotifier {
     }
   }
 
+  List<PontoItem> _mergePontos(List<PontoItem> novos, List<PontoItem> antigos) {
+    return novos.map((novo) {
+      if (novo.ponto.nomePonto.isEmpty) {
+        final antigo = antigos.cast<PontoItem?>().firstWhere(
+          (p) => p?.ponto.id == novo.ponto.id,
+          orElse: () => null,
+        );
+        if (antigo != null && antigo.ponto.nomePonto.isNotEmpty) {
+          return novo.copyWith(ponto: antigo.ponto);
+        }
+      }
+      return novo;
+    }).toList();
+  }
+
   Future<bool> atualizarPlaylist(int id, Playlist playlist) async {
     _isLoading = true;
     _errorMessage = null;
@@ -100,14 +174,24 @@ class PlaylistsProvider extends ChangeNotifier {
 
     try {
       final atualizada = await _service.atualizarPlaylist(id, playlist);
+      
+      final mergedPontos = _mergePontos(atualizada.pontos, playlist.pontos);
+      final finalAtualizada = atualizada.copyWith(pontos: mergedPontos);
+
       final index = _playlists.indexWhere((p) => p.id == id);
       if (index != -1) {
-        _playlists[index] = atualizada;
+        _playlists[index] = finalAtualizada;
       } else {
-        _playlists.add(atualizada);
+        _playlists.add(finalAtualizada);
       }
-      _isLoading = false;
-      notifyListeners();
+      
+      if (finalAtualizada.pontos.any((p) => p.ponto.nomePonto.isEmpty)) {
+        carregarPlaylists();
+      } else {
+        _isLoading = false;
+        notifyListeners();
+      }
+      
       return true;
     } catch (e) {
       _errorMessage = 'Erro ao atualizar playlist: $e';

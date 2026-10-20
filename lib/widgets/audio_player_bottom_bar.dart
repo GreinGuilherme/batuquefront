@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/audio_player_provider.dart';
 
 class AudioPlayerBottomBar extends StatelessWidget {
@@ -115,6 +116,17 @@ class AudioPlayerBottomBar extends StatelessWidget {
                       },
                       tooltip: isPlaying ? 'Pausar' : 'Reproduzir',
                     ),
+                    if (audioProvider.isYouTubeUrl(ponto.audioUrl))
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(4),
+                        icon: const Icon(Icons.ondemand_video_rounded, size: 22, color: Colors.redAccent),
+                        onPressed: () async {
+                          final url = Uri.parse(ponto.audioUrl);
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        },
+                        tooltip: 'Abrir no YouTube',
+                      ),
                     IconButton(
                       constraints: const BoxConstraints(),
                       padding: const EdgeInsets.all(4),
@@ -249,6 +261,15 @@ class AudioPlayerBottomBar extends StatelessWidget {
                   icon: const Icon(Icons.skip_next_rounded),
                   onPressed: () => audioProvider.tocarProxima(),
                   tooltip: 'Próxima',
+                ),
+              if (audioProvider.isYouTubeUrl(ponto.audioUrl))
+                IconButton(
+                  icon: const Icon(Icons.ondemand_video_rounded, size: 24, color: Colors.redAccent),
+                  onPressed: () async {
+                    final url = Uri.parse(ponto.audioUrl);
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  },
+                  tooltip: 'Abrir no YouTube',
                 ),
               IconButton(
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 24),

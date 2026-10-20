@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/network/logging_http_client.dart';
 import 'api_config.dart';
 
 class AuthService {
   final http.Client _client;
   Future<bool>? _refreshFuture;
 
-  AuthService({http.Client? client}) : _client = client ?? http.Client();
+  AuthService({http.Client? client}) : _client = client ?? LoggingHttpClient();
 
   static const String _tokenKey = 'jwt_token';
   static const String _cookieKey = 'auth_cookie';

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/network/logging_http_client.dart';
 import '../models/entidade.dart';
 import 'api_config.dart';
 import 'auth_service.dart';
@@ -9,7 +10,7 @@ class EntidadeService {
   final AuthService _authService;
 
   EntidadeService({http.Client? client, AuthService? authService})
-      : _client = client ?? http.Client(),
+      : _client = client ?? LoggingHttpClient(),
         _authService = authService ?? AuthService();
 
   String? _extrairMensagemErro(http.Response response) {
