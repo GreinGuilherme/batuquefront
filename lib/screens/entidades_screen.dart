@@ -472,46 +472,18 @@ class _EntidadesScreenState extends State<EntidadesScreen> with AutomaticKeepAli
                             ),
                           ),
                         )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isWide = constraints.maxWidth >= 600;
-                            if (isWide) {
-                              return GridView.builder(
-                                controller: _scrollController,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.all(12),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  childAspectRatio: 3.2,
-                                  crossAxisSpacing: 8,
-                                  mainAxisSpacing: 8,
-                                ),
-                                itemCount: entidades.length,
-                                itemBuilder: (context, index) {
-                                  final entidade = entidades[index];
-                                  return EntidadeCard(
-                                    entidade: entidade,
-                                    onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
-                                    onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
-                                  );
-                                },
-                              );
-                            } else {
-                              return ListView.builder(
-                                controller: _scrollController,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                itemCount: entidades.length,
-                                itemBuilder: (context, index) {
-                                  final entidade = entidades[index];
-                                  return EntidadeCard(
-                                    entidade: entidade,
-                                    onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
-                                    onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
-                                  );
-                                },
-                              );
-                            }
+                      : ListView.builder(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          itemCount: entidades.length,
+                          itemBuilder: (context, index) {
+                            final entidade = entidades[index];
+                            return EntidadeCard(
+                              entidade: entidade,
+                              onEdit: canEdit ? () => EntidadeFormDialog.show(context, entidade: entidade) : null,
+                              onDelete: canEdit ? () => _confirmDelete(context, entidade) : null,
+                            );
                           },
                         ),
             ),

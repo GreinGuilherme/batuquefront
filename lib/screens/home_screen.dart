@@ -24,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  bool _isMenuExtended = false;
   late final PageController _pageController;
 
   @override
@@ -194,56 +195,79 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+      body: Row(
         children: [
-          const EntidadesScreen(),
-          const PontosScreen(),
-          PlaylistsScreen(parentPageController: _pageController),
-        ],
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const AudioPlayerBottomBar(useBottomInset: false),
-          NavigationBar(
-            height: 52,
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-              _pageController.animateToPage(
-                index,
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-              );
-            },
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.person_outline_rounded, size: 20),
-                selectedIcon: Icon(Icons.person_rounded, size: 20),
-                label: 'Entidades',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.music_note_outlined, size: 20),
-                selectedIcon: Icon(Icons.music_note_rounded, size: 20),
-                label: 'Pontos',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.queue_music_outlined, size: 20),
-                selectedIcon: Icon(Icons.queue_music_rounded, size: 20),
-                label: 'Playlists',
-              ),
-            ],
+          Material(
+            color: Theme.of(context).navigationRailTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
+            child: Column(
+              children: [
+                Expanded(
+                  child: NavigationRail(
+                    extended: _isMenuExtended,
+                    selectedIndex: _currentIndex,
+                    groupAlignment: -1.0,
+                    onDestinationSelected: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(Icons.person_outline_rounded, size: 20),
+                        selectedIcon: Icon(Icons.person_rounded, size: 20),
+                        label: Text('Entidades'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.music_note_outlined, size: 20),
+                        selectedIcon: Icon(Icons.music_note_rounded, size: 20),
+                        label: Text('Pontos'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.queue_music_outlined, size: 20),
+                        selectedIcon: Icon(Icons.queue_music_rounded, size: 20),
+                        label: Text('Playlists'),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
+                  child: IconButton(
+                    icon: Icon(_isMenuExtended ? Icons.chevron_left : Icons.chevron_right),
+                    onPressed: () {
+                      setState(() {
+                        _isMenuExtended = !_isMenuExtended;
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const VerticalDivider(thickness: 1, width: 1),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              children: [
+                const EntidadesScreen(),
+                const PontosScreen(),
+                PlaylistsScreen(parentPageController: _pageController),
+              ],
+            ),
           ),
         ],
       ),
+      bottomNavigationBar: const AudioPlayerBottomBar(useBottomInset: false),
     );
   }
 }
